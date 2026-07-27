@@ -1,10 +1,17 @@
-import { signInWithEmailAndPassword, signOut as fbSignOut, onAuthStateChanged, type User } from "firebase/auth";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut, onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, query, orderBy } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import type { Profile } from "@/types/database";
 
+const googleProvider = new GoogleAuthProvider();
+
 export async function signIn(email: string, password: string) {
   const result = await signInWithEmailAndPassword(auth, email, password);
+  return result;
+}
+
+export async function signInWithGoogle() {
+  const result = await signInWithPopup(auth, googleProvider);
   return result;
 }
 
