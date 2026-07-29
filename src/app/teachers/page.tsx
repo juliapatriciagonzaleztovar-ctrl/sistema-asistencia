@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -42,12 +42,16 @@ export default function TeachersPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     try {
+      if (!form.document.trim()) { toast.error("El documento es obligatorio"); return; }
+      const dupSnap = await getDocs(query(collection(db, "teachers"), where("document", "==", form.document.trim())));
+      const dup = dupSnap.docs.find((d) => !editing || d.id !== editing.id);
+      if (dup) { toast.error("Este documento ya esta registrado"); return; }
       if (editing) {
-        await updateDoc(doc(db, "teachers", editing.id), form);
+        await updateDoc(doc(db, "teachers", editing.id), { ...form, document: form.document.trim() });
         await logAction("update", "teachers", editing.id, form);
         toast.success("Profesor actualizado");
       } else {
-        await addDoc(collection(db, "teachers"), { ...form, created_at: new Date().toISOString() });
+        await addDoc(collection(db, "teachers"), { ...form, document: form.document.trim(), created_at: new Date().toISOString() });
         await logAction("create", "teachers", null, form);
         toast.success("Profesor registrado");
       }
@@ -118,7 +122,7 @@ export default function TeachersPage() {
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editing ? "Editar Profesor" : "Registrar Profesor"} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4"><Input label="Nombres" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required /><Input label="Apellidos" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} required /></div>
-          <div className="grid grid-cols-2 gap-4"><Input label="Documento" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} /><Input label="Correo" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+          <div className="grid grid-cols-2 gap-4"><Input label="Documento *" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} required /><Input label="Correo" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-4"><Input label="Telefono" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /><Input label="Cargo" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></div>
           <div className="grid grid-cols-2 gap-4">
             <Input label="Fecha de ingreso" type="date" value={form.hire_date} onChange={(e) => setForm({ ...form, hire_date: e.target.value })} />
