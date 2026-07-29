@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useEffect } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
 import { auth, db } from "./firebase";
 import type { Profile } from "@/types/database";
 
@@ -40,7 +40,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (docSnap.exists()) {
         setProfile({ id: docSnap.id, ...docSnap.data() } as Profile);
       } else {
-        setProfile(null);
+        const profilesSnap = await getDocs(collection(db, "profiles"));
+        if (profilesSnap.empty) {
+          const newProfile = {
+            email: auth.currentUser?.email || "",
+            display_name: auth.currentUser?.email?.split("@")[0] || "Usuario",
+            role: "super_admin" as const,
+            avatar_url: null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          await setDoc(docRef, newProfile);
+          setProfile({ id: uid, ...newProfile });
+        } else {
+          setProfile(null);
+        }
       }
     } catch {
       setProfile(null);
