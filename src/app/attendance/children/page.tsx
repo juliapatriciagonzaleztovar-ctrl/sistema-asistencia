@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
@@ -32,8 +32,8 @@ export default function ChildrenAttendancePage() {
   async function loadData() {
     const today = getTodayDate();
     const [childrenData, groupsData, attendanceData] = await Promise.all([
-      getDocs(query(collection(db, "children"), where("status", "==", "active"), orderBy("first_name"))),
-      getDocs(query(collection(db, "groups"), orderBy("name"))),
+      getDocs(query(collection(db, "children"), where("status", "==", "active"))),
+      getDocs(collection(db, "groups")),
       getDocs(query(collection(db, "attendance_children"), where("attendance_date", "==", today))),
     ]);
     const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));

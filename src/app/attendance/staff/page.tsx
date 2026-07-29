@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
-import { collection, getDocs, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
@@ -29,8 +29,8 @@ export default function StaffAttendancePage() {
   async function loadData() {
     const today = getTodayDate();
     const [teachersData, practitionersData, attendanceData] = await Promise.all([
-      getDocs(query(collection(db, "teachers"), where("status", "==", "active"), orderBy("first_name"))),
-      getDocs(query(collection(db, "practitioners"), where("status", "==", "active"), orderBy("first_name"))),
+      getDocs(query(collection(db, "teachers"), where("status", "==", "active"))),
+      getDocs(query(collection(db, "practitioners"), where("status", "==", "active"))),
       getDocs(query(collection(db, "attendance_staff"), where("attendance_date", "==", today))),
     ]);
     const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceStaff));
