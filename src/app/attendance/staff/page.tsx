@@ -5,7 +5,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
-import { registerStaffAttendance } from "@/lib/attendance";
+import { registerStaffAttendance, autoMarkAbsentStaff } from "@/lib/attendance";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
 import { PencilIcon, CheckCircleIcon, ClockIcon, UserGroupIcon } from "@heroicons/react/24/outline";
@@ -28,6 +28,10 @@ export default function StaffAttendancePage() {
 
   async function loadData() {
     const today = getTodayDate();
+    if (user) {
+      const autoMarked = await autoMarkAbsentStaff(user.uid);
+      if (autoMarked > 0) toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 6:00pm)`, { icon: "ℹ️" });
+    }
     const [teachersData, practitionersData, attendanceData] = await Promise.all([
       getDocs(query(collection(db, "teachers"), where("status", "==", "active"))),
       getDocs(query(collection(db, "practitioners"), where("status", "==", "active"))),

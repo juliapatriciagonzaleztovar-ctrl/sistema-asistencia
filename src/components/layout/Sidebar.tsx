@@ -24,12 +24,15 @@ interface SidebarProps {
 const mainNav = [
   { name: "Dashboard", href: "/dashboard", icon: HomeIcon },
   { name: "Ninos", href: "/children", icon: UserGroupIcon },
-  { name: "Grupos", href: "/groups", icon: UserGroupIcon },
   { name: "Profesores", href: "/teachers", icon: UserIcon },
   { name: "Practicantes", href: "/practitioners", icon: UserIcon },
   { name: "Asistencia Ninos", href: "/attendance/children", icon: ClipboardDocumentListIcon },
   { name: "Asistencia Personal", href: "/attendance/staff", icon: ClipboardDocumentListIcon },
   { name: "Reportes", href: "/reports", icon: ChartBarIcon },
+];
+
+const adminOnlyNav = [
+  { name: "Grupos", href: "/groups", icon: UserGroupIcon },
 ];
 
 const adminNav = [
@@ -99,6 +102,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
 
           {isAdmin && (
             <>
+              {adminOnlyNav.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <Link key={item.name} href={item.href} onClick={onClose} className={linkClass(isActive(item.href))}>
+                    <Icon className="w-5 h-5" />
+                    {item.name}
+                  </Link>
+                );
+              })}
               <div className="mt-6 mb-3 px-3 text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Administracion</div>
               {adminNav.map((item) => {
                 const Icon = item.icon;

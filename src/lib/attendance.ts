@@ -124,3 +124,64 @@ export async function getAllStaffAttendance(date?: string) {
     practitioners: all.filter((a) => a.staff_type === "practitioner"),
   };
 }
+
+export async function autoMarkAbsentChildren(userId: string) {
+  const now = new Date();
+  if (now.getHours() < 18) return 0;
+  const today = getTodayDate();
+  const [childrenSnap, attendanceSnap] = await Promise.all([
+    getDocs(query(collection(db, "children"), where("status", "==", "active"))),
+    getDocs(query(collection(db, "attendance_children"), where("attendance_date", "==", today))),
+  ]);
+  const markedIds = new Set(attendanceSnap.docs.map((d) => d.data().child_id));
+  const unmarked = childrenSnap.docs.filter((d) => !markedIds.has(d.id));
+  if (unmarked.length === 0) return 0;
+  const batch = writeBatch(db);
+  for (const childDoc of unmarked) {
+    const docRef = doc(collection(db, "attendance_children"));
+    batch.set(docRef, {
+      child_id: childDoc.id,
+      attendance_date: today,
+      status: "absent",
+      registered_by: userId,
+      auto_marked: true,
+      created_at: now.toISOString(),
+    });
+  }
+  await batch.commit();
+  return unmarked.length;
+}
+
+export async function autoMarkAbsentStaff(userId: string) {
+  const now = new Date();
+  if (now.getHours() < 18) return 0;
+  const today = getTodayDate();
+  const [teachersSnap, practitionersSnap, attendanceSnap] = await Promise.all([
+    getDocs(query(collection(db, "teachers"), where("status", "==", "active"))),
+    getDocs(query(collection(db, "practitioners"), where("status", "==", "active"))),
+    getDocs(query(collection(db, "attendance_staff"), where("attendance_date", "==", today))),
+  ]);
+  const markedIds = new Set(attendanceSnap.docs.map((d) => `${d.data().staff_type}-${d.data().staff_id}`));
+  const unmarkedStaff: Array<{ id: string; type: "teacher" | "practitioner" }> = [];
+  teachersSnap.docs.forEach((d) => { if (!markedIds.has(`teacher-${d.id}`)) unmarkedStaff.push({ id: d.id, type: "teacher" }); });
+  practitionersSnap.docs.forEach((d) => { if (!markedIds.has(`practitioner-${d.id}`)) unmarkedStaff.push({ id: d.id, type: "practitioner" }); });
+  if (unmarkedStaff.length === 0) return 0;
+  const batch = writeBatch(db);
+  for (const s of unmarkedStaff) {
+    const docRef = doc(collection(db, "attendance_staff"));
+    batch.set(docRef, {
+      staff_id: s.id,
+      staff_type: s.type,
+      attendance_date: today,
+      check_in: null,
+      check_out: null,
+      status: "absent",
+      signature_url: null,
+      registered_by: userId,
+      auto_marked: true,
+      created_at: now.toISOString(),
+    });
+  }
+  await batch.commit();
+  return unmarkedStaff.length;
+}

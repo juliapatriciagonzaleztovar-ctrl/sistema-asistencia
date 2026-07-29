@@ -5,7 +5,7 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
-import { registerBulkChildAttendance } from "@/lib/attendance";
+import { registerBulkChildAttendance, autoMarkAbsentChildren } from "@/lib/attendance";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ClipboardDocumentCheckIcon } from "@heroicons/react/24/outline";
@@ -31,6 +31,10 @@ export default function ChildrenAttendancePage() {
 
   async function loadData() {
     const today = getTodayDate();
+    if (user) {
+      const autoMarked = await autoMarkAbsentChildren(user.uid);
+      if (autoMarked > 0) toast(`Se marcaron ${autoMarked} ninos como ausentes (pasado las 6:00pm)`, { icon: "ℹ️" });
+    }
     const [childrenData, groupsData, attendanceData] = await Promise.all([
       getDocs(query(collection(db, "children"), where("status", "==", "active"))),
       getDocs(collection(db, "groups")),
