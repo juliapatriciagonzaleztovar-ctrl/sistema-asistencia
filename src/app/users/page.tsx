@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { collection, getDocs, updateDoc, deleteDoc, doc, setDoc } from "firebase/firestore";
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
 import { Modal } from "@/components/ui/Modal";
@@ -41,12 +41,13 @@ export default function UsersPage() {
         toast.success("Usuario actualizado");
       } else {
         const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-        await addDoc(collection(db, "profiles"), {
-          id: userCredential.user.uid,
+        await setDoc(doc(db, "profiles", userCredential.user.uid), {
           email: form.email,
           display_name: form.display_name,
           role: form.role,
+          avatar_url: null,
           created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
         });
         await logAction("create", "profiles", null, { email: form.email, role: form.role });
         toast.success("Usuario creado");
