@@ -36,12 +36,27 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
 }
 
 function AppShell({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
+  const adminRoutes = ["/audit", "/users", "/settings"];
+  const isRestricted = profile?.role !== "super_admin" && adminRoutes.some((r) => pathname === r || pathname.startsWith(r + "/"));
+
   if (pathname === "/login" || !user) {
     return <>{children}</>;
+  }
+
+  if (!loading && isRestricted) {
+    return (
+      <div className="flex min-h-screen bg-gray-50 dark:bg-[#0c1220] items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg font-bold text-gray-900 dark:text-white mb-2">Acceso restringido</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">No tienes permisos para ver esta pagina.</p>
+          <a href="/dashboard" className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md">Volver al Dashboard</a>
+        </div>
+      </div>
+    );
   }
 
   return (
