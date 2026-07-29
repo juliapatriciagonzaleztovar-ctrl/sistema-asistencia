@@ -20,12 +20,16 @@ export function exportToPDF(
   doc.setFontSize(18);
   doc.text(title, 14, 22);
   doc.setFontSize(10);
-  doc.text(`Fecha de generacion: ${new Date().toLocaleDateString("es-CO")}`, 14, 32);
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
+  const timeStr = now.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" });
+  doc.text(`Fecha: ${dateStr}`, 14, 32);
+  doc.text(`Hora: ${timeStr}`, 14, 38);
 
   autoTable(doc, {
     head: [headers],
     body: data as never[][],
-    startY: 40,
+    startY: 44,
     styles: { fontSize: 9, cellPadding: 3 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255 },
     alternateRowStyles: { fillColor: [240, 245, 255] },
