@@ -18,7 +18,7 @@ export default function ChildrenPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [form, setForm] = useState({
-    first_name: "", last_name: "", document: "", date_of_birth: "",
+    first_name: "", last_name: "", document: "", age: "",
     group_id: "", shift: "manana", status: "active" as "active" | "inactive", observations: "",
   });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -39,17 +39,9 @@ export default function ChildrenPage() {
     setLoading(false);
   }
 
-  function calcAge(dob: string) {
-    const today = new Date();
-    const birth = new Date(dob);
-    let age = today.getFullYear() - birth.getFullYear();
-    if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
-    return age;
-  }
-
   function openCreate() {
     setEditingChild(null);
-    setForm({ first_name: "", last_name: "", document: "", date_of_birth: "", group_id: "", shift: "manana", status: "active", observations: "" });
+    setForm({ first_name: "", last_name: "", document: "", age: "", group_id: "", shift: "manana", status: "active", observations: "" });
     setShowModal(true);
   }
 
@@ -57,7 +49,7 @@ export default function ChildrenPage() {
     setEditingChild(child);
     setForm({
       first_name: child.first_name, last_name: child.last_name, document: child.document || "",
-      date_of_birth: child.date_of_birth, group_id: child.group_id || "", shift: child.shift,
+      age: child.age ? String(child.age) : "", group_id: child.group_id || "", shift: child.shift,
       status: child.status, observations: child.observations || "",
     });
     setShowModal(true);
@@ -65,8 +57,7 @@ export default function ChildrenPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const age = calcAge(form.date_of_birth);
-    const payload = { ...form, age, group_id: form.group_id || null };
+    const payload = { ...form, age: form.age ? Number(form.age) : null, group_id: form.group_id || null };
     try {
       if (editingChild) {
         await updateDoc(doc(db, "children", editingChild.id), payload);
@@ -201,8 +192,8 @@ export default function ChildrenPage() {
             <Input label="Apellidos" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} required placeholder="Ej: Perez" />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <Input label="Documento (opcional)" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} placeholder="Ej: 1234567890" />
-            <Input label="Fecha de nacimiento" type="date" value={form.date_of_birth} onChange={(e) => setForm({ ...form, date_of_birth: e.target.value })} required />
+            <Input label="Documento" value={form.document} onChange={(e) => setForm({ ...form, document: e.target.value })} placeholder="Ej: 1234567890" />
+            <Input label="Edad" type="number" min="0" max="18" value={form.age} onChange={(e) => setForm({ ...form, age: e.target.value })} placeholder="Ej: 5" />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
