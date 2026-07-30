@@ -28,20 +28,27 @@ export default function DashboardPage() {
   }, [user, authLoading]);
 
   async function loadDashboard() {
-    const today = new Date().toISOString().split("T")[0];
-    const [childrenSnap, teachersSnap, practitionersSnap, attendanceSnap] = await Promise.all([
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const [childrenSnap, teachersSnap, practitionersSnap, attendanceSnap, staffAttendanceSnap] = await Promise.all([
       getDocs(collection(db, "children")),
       getDocs(collection(db, "teachers")),
       getDocs(collection(db, "practitioners")),
       getDocs(query(collection(db, "attendance_children"), where("attendance_date", "==", today))),
+      getDocs(query(collection(db, "attendance_staff"), where("attendance_date", "==", today))),
     ]);
+
+    const childPresent = attendanceSnap.docs.filter((d) => d.data().status === "present").length;
+    const childAbsent = attendanceSnap.docs.filter((d) => d.data().status === "absent").length;
+    const staffPresent = staffAttendanceSnap.docs.filter((d) => d.data().check_in && d.data().status !== "absent").length;
+    const staffAbsent = staffAttendanceSnap.docs.filter((d) => d.data().status === "absent" && !d.data().check_in).length;
 
     setStats({
       totalChildren: childrenSnap.size,
       totalTeachers: teachersSnap.size,
       totalPractitioners: practitionersSnap.size,
-      todayPresent: attendanceSnap.docs.filter((d) => d.data().status === "present").length,
-      todayAbsent: attendanceSnap.docs.filter((d) => d.data().status === "absent").length,
+      todayPresent: childPresent + staffPresent,
+      todayAbsent: childAbsent + staffAbsent,
     });
 
     const monthlyData: MonthlyData[] = [];
