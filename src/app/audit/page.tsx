@@ -9,6 +9,23 @@ import type { AuditLog } from "@/types/database";
 const actionLabels: Record<string, string> = { create: "Creo", update: "Actualizo", delete: "Elimino" };
 const entityLabels: Record<string, string> = { children: "Nino", groups: "Grupo", teachers: "Profesor", practitioners: "Practicante", attendance_children: "Asistencia Infantil", attendance_staff: "Asistencia Personal", profiles: "Usuario" };
 
+function getDetailText(log: AuditLog): string {
+  const d = log.details as Record<string, unknown> | null;
+  if (!d) return "";
+  if (log.entity_type === "attendance_staff" && d.signed) {
+    const name = d.staff_name || "Personal";
+    const type = d.staff_type === "teacher" ? "Profesor" : d.staff_type === "practitioner" ? "Practicante" : "Personal";
+    return `${type} ${name} firmo asistencia`;
+  }
+  if (log.entity_type === "attendance_children" && d.count) {
+    return `${d.count} asistencia(s) registrada(s)`;
+  }
+  if (log.entity_type === "profiles" && d.email) {
+    return `Usuario: ${d.email} (${d.role === "super_admin" ? "Super Admin" : "Operador"})`;
+  }
+  return "";
+}
+
 export default function AuditPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +59,7 @@ export default function AuditPage() {
       <div className="bg-white dark:bg-[#1a2438] rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead><tr className="border-b border-gray-100 dark:border-gray-800"><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Fecha/Hora</th><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Usuario</th><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Accion</th><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Entidad</th></tr></thead>
+            <thead><tr className="border-b border-gray-100 dark:border-gray-800"><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Fecha/Hora</th><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Usuario</th><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Accion</th><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Entidad</th><th className="text-left px-5 py-3.5 font-semibold text-gray-500 dark:text-gray-400">Detalle</th></tr></thead>
             <tbody>
               {filtered.map((log) => (
                 <tr key={log.id} className="border-b border-gray-50 dark:border-gray-800/50 hover:bg-gray-50 dark:hover:bg-[#1e293b] transition-colors">
@@ -50,6 +67,7 @@ export default function AuditPage() {
                   <td className="px-5 py-3.5 font-semibold text-gray-900 dark:text-white">{log.user_email}</td>
                   <td className="px-5 py-3.5"><span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${log.action === "create" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" : log.action === "update" ? "bg-primary/10 text-primary" : "bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400"}`}>{actionLabels[log.action] || log.action}</span></td>
                   <td className="px-5 py-3.5 text-gray-600 dark:text-gray-300">{entityLabels[log.entity_type] || log.entity_type}</td>
+                  <td className="px-5 py-3.5 text-gray-500 dark:text-gray-400 text-[13px]">{getDetailText(log)}</td>
                 </tr>
               ))}
             </tbody>

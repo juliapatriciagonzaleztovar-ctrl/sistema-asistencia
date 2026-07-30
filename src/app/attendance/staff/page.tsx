@@ -77,7 +77,7 @@ export default function StaffAttendancePage() {
     const signatureUrl = canvasRef.current?.toDataURL("image/png") || null;
     try {
       await registerStaffAttendance(signingFor.staff.id, signingFor.type, user.uid, signatureUrl);
-      await logAction("create", "attendance_staff", null, { staff_id: signingFor.staff.id });
+      await logAction("create", "attendance_staff", null, { staff_id: signingFor.staff.id, staff_name: `${signingFor.staff.first_name} ${signingFor.staff.last_name}`, staff_type: signingFor.type, signed: true });
       toast.success("Asistencia registrada con firma");
       setShowSignature(false);
       setSigningFor(null);
