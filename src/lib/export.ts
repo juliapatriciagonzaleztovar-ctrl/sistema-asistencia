@@ -49,3 +49,80 @@ export function exportToCsv(data: Record<string, unknown>[], filename: string) {
   link.click();
   URL.revokeObjectURL(url);
 }
+
+export interface PDFDetailRow {
+  name: string;
+  groupOrType: string;
+  date: string;
+  status: string;
+  signatureDataUrl?: string | null;
+}
+
+export function exportToPDFDetail(
+  title: string,
+  headers: string[],
+  rows: PDFDetailRow[],
+  filename: string,
+  includeSignature: boolean
+) {
+  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+  doc.setFontSize(16);
+  doc.text(title, 14, 18);
+  doc.setFontSize(9);
+  const dateStr = new Date().toLocaleDateString("es-CO", { year: "numeric", month: "long", day: "numeric" });
+  doc.text(`Generado: ${dateStr}`, 14, 26);
+
+  const body: (string | { content: string; styles: Record<string, unknown> })[][] = [];
+
+  rows.forEach((row) => {
+    const rowCells: (string | { content: string; styles: Record<string, unknown> })[] = [
+      row.name,
+      row.groupOrType,
+      row.date,
+      row.status,
+    ];
+    if (includeSignature) {
+      rowCells.push("");
+    }
+    body.push(rowCells);
+  });
+
+  const tableOptions: Record<string, unknown> = {
+    head: [headers],
+    body: body as never[][],
+    startY: 30,
+    styles: { fontSize: 8, cellPadding: 2.5 },
+    headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+    alternateRowStyles: { fillColor: [240, 245, 255] },
+    columnStyles: includeSignature ? {
+      0: { cellWidth: 50 },
+      1: { cellWidth: 35 },
+      2: { cellWidth: 30 },
+      3: { cellWidth: 30 },
+      4: { cellWidth: 55 },
+    } : {},
+  };
+
+  autoTable(doc, tableOptions);
+
+  if (includeSignature) {
+    const docAny = doc as unknown as { lastAutoTable?: { finalY: number } };
+    const finalY = docAny.lastAutoTable?.finalY || 30;
+
+    rows.forEach((row, i) => {
+      if (row.signatureDataUrl && row.signatureDataUrl.startsWith("data:image")) {
+        try {
+          const imgWidth = 28;
+          const imgHeight = 14;
+          const y = (finalY as number) + 4 + i * 14;
+          if (y + imgHeight < doc.internal.pageSize.getHeight()) {
+            doc.addImage(row.signatureDataUrl, "PNG", 195, y, imgWidth, imgHeight);
+          }
+        } catch { /* skip invalid images */ }
+      }
+    });
+  }
+
+  doc.save(`${filename}.pdf`);
+}
