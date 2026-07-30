@@ -30,7 +30,15 @@ export default function ReportsPage() {
     const now = new Date();
     let startDate: string, endDate: string;
     if (filter === "day") { startDate = endDate = getTodayDate(); }
-    else if (filter === "week") { const day = now.getDay(); const monday = new Date(now); monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1)); const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6); startDate = monday.toISOString().split("T")[0]; endDate = sunday.toISOString().split("T")[0]; }
+    else if (filter === "week") {
+      const day = now.getDay();
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      startDate = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+      endDate = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, "0")}-${String(sunday.getDate()).padStart(2, "0")}`;
+    }
     else if (filter === "month") { startDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`; endDate = getTodayDate(); }
     else { startDate = `${now.getFullYear()}-01-01`; endDate = getTodayDate(); }
 

@@ -2,24 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
-import { useRouter } from "next/navigation";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { getTodayDate } from "@/lib/utils";
 import { UserGroupIcon, AcademicCapIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon, ArrowTrendingUpIcon } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
-interface Stats { totalChildren: number; totalTeachers: number; totalPractitioners: number; todayPresent: number; todayAbsent: number; }
+interface Stats { totalChildren: number; totalTeachers: number; totalPractitioners: number; monthPresent: number; monthAbsent: number; lastAttendance: string; }
 interface MonthlyData { month: string; presentes: number; ausentes: number; }
 
 function getMonthName(m: number) {
   return ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][m];
 }
 
+function getMonthRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const start = `${year}-${String(month).padStart(2, "0")}-01`;
+  const endMonth = month === 12 ? 1 : month + 1;
+  const endYear = month === 12 ? year + 1 : year;
+  const end = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
+  return { start, end };
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
-  const router = useRouter();
-  const [stats, setStats] = useState<Stats>({ totalChildren: 0, totalTeachers: 0, totalPractitioners: 0, todayPresent: 0, todayAbsent: 0 });
+  const [stats, setStats] = useState<Stats>({ totalChildren: 0, totalTeachers: 0, totalPractitioners: 0, monthPresent: 0, monthAbsent: 0, lastAttendance: "" });
   const [monthly, setMonthly] = useState<MonthlyData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -29,13 +37,13 @@ export default function DashboardPage() {
   }, [user, authLoading]);
 
   async function loadDashboard() {
-    const today = getTodayDate();
+    const { start, end } = getMonthRange();
     const [childrenSnap, teachersSnap, practitionersSnap, attendanceSnap, staffAttendanceSnap] = await Promise.all([
       getDocs(collection(db, "children")),
       getDocs(collection(db, "teachers")),
       getDocs(collection(db, "practitioners")),
-      getDocs(query(collection(db, "attendance_children"), where("attendance_date", "==", today))),
-      getDocs(query(collection(db, "attendance_staff"), where("attendance_date", "==", today))),
+      getDocs(query(collection(db, "attendance_children"), where("attendance_date", ">=", start), where("attendance_date", "<", end))),
+      getDocs(query(collection(db, "attendance_staff"), where("attendance_date", ">=", start), where("attendance_date", "<", end))),
     ]);
 
     const childPresent = attendanceSnap.docs.filter((d) => d.data().status === "present").length;
@@ -43,12 +51,19 @@ export default function DashboardPage() {
     const staffPresent = staffAttendanceSnap.docs.filter((d) => d.data().check_in && d.data().status !== "absent").length;
     const staffAbsent = staffAttendanceSnap.docs.filter((d) => d.data().status === "absent" && !d.data().check_in).length;
 
+    const allDates = [
+      ...attendanceSnap.docs.map((d) => d.data().attendance_date as string),
+      ...staffAttendanceSnap.docs.map((d) => d.data().attendance_date as string),
+    ].sort().reverse();
+    const lastAtt = allDates.length > 0 ? allDates[0] : "";
+
     setStats({
       totalChildren: childrenSnap.size,
       totalTeachers: teachersSnap.size,
       totalPractitioners: practitionersSnap.size,
-      todayPresent: childPresent + staffPresent,
-      todayAbsent: childAbsent + staffAbsent,
+      monthPresent: childPresent + staffPresent,
+      monthAbsent: childAbsent + staffAbsent,
+      lastAttendance: lastAtt,
     });
 
     const monthlyData: MonthlyData[] = [];
@@ -57,12 +72,14 @@ export default function DashboardPage() {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = d.getFullYear(); const month = d.getMonth() + 1;
       const sDate = `${year}-${String(month).padStart(2, "0")}-01`;
-      const endMonth = month === 12 ? 1 : month + 1;
-      const endYear = month === 12 ? year + 1 : year;
+      const endMonth = month === 12 ? 1 : month + 1; const endYear = month === 12 ? year + 1 : year;
       const eDate = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
       const qMonth = query(collection(db, "attendance_children"), where("attendance_date", ">=", sDate), where("attendance_date", "<", eDate));
-      const dataSnap = await getDocs(qMonth);
-      monthlyData.push({ month: getMonthName(d.getMonth()), presentes: dataSnap.docs.filter((a) => a.data().status === "present").length, ausentes: dataSnap.docs.filter((a) => a.data().status === "absent").length });
+      const qStaff = query(collection(db, "attendance_staff"), where("attendance_date", ">=", sDate), where("attendance_date", "<", eDate));
+      const [dataSnap, staffSnap] = await Promise.all([getDocs(qMonth), getDocs(qStaff)]);
+      const present = dataSnap.docs.filter((a) => a.data().status === "present").length + staffSnap.docs.filter((a) => a.data().check_in && a.data().status !== "absent").length;
+      const absent = dataSnap.docs.filter((a) => a.data().status === "absent").length + staffSnap.docs.filter((a) => a.data().status === "absent" && !a.data().check_in).length;
+      monthlyData.push({ month: getMonthName(d.getMonth()), presentes: present, ausentes: absent });
     }
     setMonthly(monthlyData);
     setLoading(false);
@@ -76,12 +93,12 @@ export default function DashboardPage() {
     { title: "Ninos registrados", value: stats.totalChildren, icon: UserGroupIcon, gradient: "gradient-primary" },
     { title: "Profesores", value: stats.totalTeachers, icon: AcademicCapIcon, gradient: "gradient-success" },
     { title: "Practicantes", value: stats.totalPractitioners, icon: BriefcaseIcon, gradient: "gradient-warm" },
-    { title: "Asistencias hoy", value: stats.todayPresent, icon: CheckCircleIcon, gradient: "gradient-success" },
-    { title: "Ausencias hoy", value: stats.todayAbsent, icon: XCircleIcon, gradient: "gradient-danger" },
+    { title: "Asistencias mes", value: stats.monthPresent, icon: CheckCircleIcon, gradient: "gradient-success" },
+    { title: "Ausencias mes", value: stats.monthAbsent, icon: XCircleIcon, gradient: "gradient-danger" },
   ];
 
-  const totalToday = stats.todayPresent + stats.todayAbsent;
-  const attendanceRate = totalToday > 0 ? Math.round((stats.todayPresent / totalToday) * 100) : 0;
+  const totalMonth = stats.monthPresent + stats.monthAbsent;
+  const attendanceRate = totalMonth > 0 ? Math.round((stats.monthPresent / totalMonth) * 100) : 0;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -90,6 +107,9 @@ export default function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Dashboard</h1>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Resumen general del sistema de asistencia</p>
         </div>
+        {stats.lastAttendance && (
+          <p className="text-xs text-gray-400 dark:text-gray-500">Ultima asistencia: {stats.lastAttendance}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 stagger-children">
@@ -115,8 +135,8 @@ export default function DashboardPage() {
         <div className="flex items-center gap-3 mb-4">
           <ArrowTrendingUpIcon className="w-5 h-5 text-primary" />
           <div>
-            <h3 className="text-base font-bold text-gray-900 dark:text-white">Tasa de Asistencia Hoy</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500">{stats.todayPresent} de {totalToday} registros (ninos + personal)</p>
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">Tasa de Asistencia del Mes</h3>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{stats.monthPresent} de {totalMonth} registros (ninos + personal)</p>
           </div>
         </div>
         <div className="w-full h-3 rounded-full bg-gray-100 dark:bg-gray-800">
