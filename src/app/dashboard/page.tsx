@@ -116,7 +116,7 @@ export default function DashboardPage() {
           <ArrowTrendingUpIcon className="w-5 h-5 text-primary" />
           <div>
             <h3 className="text-base font-bold text-gray-900 dark:text-white">Tasa de Asistencia Hoy</h3>
-            <p className="text-xs text-gray-400 dark:text-gray-500">{stats.todayPresent} de {totalToday} ninos</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500">{stats.todayPresent} de {totalToday} registros (ninos + personal)</p>
           </div>
         </div>
         <div className="w-full h-3 rounded-full bg-gray-100 dark:bg-gray-800">
