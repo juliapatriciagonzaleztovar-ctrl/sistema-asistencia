@@ -73,14 +73,15 @@ export interface AttendanceChild {
 export interface AttendanceStaff {
   id: string;
   staff_id: string;
-  staff_type: "child" | "teacher" | "practitioner";
+  staff_type: "teacher" | "practitioner";
   attendance_date: string;
-  check_in: string;
+  check_in: string | null;
   check_out: string | null;
+  status: string | null;
   signature_url: string | null;
   registered_by: string | null;
+  auto_marked: boolean | null;
   created_at: string;
-  updated_at: string;
 }
 
 export interface AuditLog {
