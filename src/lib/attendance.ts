@@ -185,3 +185,24 @@ export async function autoMarkAbsentStaff(userId: string) {
   await batch.commit();
   return unmarkedStaff.length;
 }
+
+export async function updateChildAttendance(attendanceId: string, newStatus: "present" | "absent", note: string, userId: string) {
+  const attRef = doc(db, "attendance_children", attendanceId);
+  await updateDoc(attRef, {
+    status: newStatus,
+    modified_by: userId,
+    modification_note: note,
+    modified_at: new Date().toISOString(),
+  });
+}
+
+export async function updateStaffAttendance(attendanceId: string, newCheckIn: string | null, note: string, userId: string) {
+  const attRef = doc(db, "attendance_staff", attendanceId);
+  await updateDoc(attRef, {
+    check_in: newCheckIn || new Date().toISOString(),
+    status: newCheckIn ? null : "absent",
+    modified_by: userId,
+    modification_note: note,
+    modified_at: new Date().toISOString(),
+  });
+}

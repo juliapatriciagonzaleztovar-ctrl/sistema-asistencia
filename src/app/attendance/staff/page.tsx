@@ -5,16 +5,18 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
-import { registerStaffAttendance, autoMarkAbsentStaff } from "@/lib/attendance";
+import { registerStaffAttendance, autoMarkAbsentStaff, updateStaffAttendance } from "@/lib/attendance";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
 import { PencilIcon, CheckCircleIcon, ClockIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { Modal } from "@/components/ui/Modal";
 import type { Teacher, Practitioner, AttendanceStaff } from "@/types/database";
 
 interface StaffItem { staff: Teacher | Practitioner; type: "teacher" | "practitioner"; attendance: AttendanceStaff | null; }
 
 export default function StaffAttendancePage() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const isAdmin = profile?.role === "super_admin";
   const [items, setItems] = useState<StaffItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [date] = useState(getTodayDate());
@@ -23,6 +25,9 @@ export default function StaffAttendancePage() {
   const [signingFor, setSigningFor] = useState<StaffItem | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
+  const [editItem, setEditItem] = useState<StaffItem | null>(null);
+  const [editNote, setEditNote] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
 
   useEffect(() => { loadData(); const i = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(i); }, []);
 
@@ -85,6 +90,28 @@ export default function StaffAttendancePage() {
     } catch { toast.error("Error al registrar"); }
   }, [signingFor, user]);
 
+  function openEdit(item: StaffItem) {
+    setEditItem(item);
+    setEditNote("");
+  }
+
+  async function saveEdit() {
+    if (!editItem?.attendance || !editNote.trim() || !user) return;
+    setSavingEdit(true);
+    try {
+      await updateStaffAttendance(editItem.attendance.id, editItem.attendance.check_in, editNote.trim(), user.uid);
+      await logAction("update", "attendance_staff", editItem.attendance.id, {
+        staff_name: `${editItem.staff.first_name} ${editItem.staff.last_name}`,
+        staff_type: editItem.type,
+        note: editNote.trim(),
+      });
+      toast.success("Asistencia corregida");
+      setEditItem(null);
+      loadData();
+    } catch { toast.error("Error al corregir asistencia"); }
+    setSavingEdit(false);
+  }
+
   if (loading) return <div className="flex h-64 items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
 
   return (
@@ -106,7 +133,14 @@ export default function StaffAttendancePage() {
                 <div><h3 className="font-bold text-gray-900 dark:text-white text-sm">{item.staff.first_name} {item.staff.last_name}</h3><p className="text-[11px] text-gray-400">{item.type === "teacher" ? "Profesor" : "Practicante"}</p></div>
               </div>
               {item.attendance ? (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20"><CheckCircleIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Presente</span><span className="text-xs text-gray-400">{item.attendance.check_in ? formatTime(item.attendance.check_in) : ""}</span></div>
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20"><CheckCircleIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Presente</span><span className="text-xs text-gray-400">{item.attendance.check_in ? formatTime(item.attendance.check_in) : ""}</span></div>
+                  {isAdmin && (
+                    <button onClick={() => openEdit(item)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-95" title="Corregir asistencia">
+                      <PencilIcon className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
               ) : (
                 <button onClick={() => startSignature(item)} className="flex items-center gap-2 px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"><PencilIcon className="w-4 h-4" />Firmar</button>
               )}
@@ -134,6 +168,25 @@ export default function StaffAttendancePage() {
           </div>
         </div>
       )}
+
+      <Modal open={!!editItem} onClose={() => setEditItem(null)} title="Corregir Asistencia Personal" size="md">
+        {editItem && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+              <p className="font-bold text-gray-900 dark:text-white">{editItem.staff.first_name} {editItem.staff.last_name}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{editItem.type === "teacher" ? "Profesor" : "Practicante"}</p>
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Motivo de la correccion *</label>
+              <textarea value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Ej: Se registro por error, el personal si asistio..." rows={3} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-none" />
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setEditItem(null)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-colors">Cancelar</button>
+              <button onClick={saveEdit} disabled={!editNote.trim() || savingEdit} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md disabled:opacity-50">{savingEdit ? "Guardando..." : "Corregir"}</button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
