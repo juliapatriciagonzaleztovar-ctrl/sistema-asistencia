@@ -5,6 +5,7 @@ import { useAuth } from "@/lib/auth-context";
 import { useRouter } from "next/navigation";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { getTodayDate } from "@/lib/utils";
 import { UserGroupIcon, AcademicCapIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon, ArrowTrendingUpIcon } from "@heroicons/react/24/outline";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
 
@@ -28,8 +29,7 @@ export default function DashboardPage() {
   }, [user, authLoading]);
 
   async function loadDashboard() {
-    const now = new Date();
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const today = getTodayDate();
     const [childrenSnap, teachersSnap, practitionersSnap, attendanceSnap, staffAttendanceSnap] = await Promise.all([
       getDocs(collection(db, "children")),
       getDocs(collection(db, "teachers")),
