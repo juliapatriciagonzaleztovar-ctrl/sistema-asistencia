@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { collection, getDocs, updateDoc, deleteDoc, doc, setDoc } from "firebase/firestore";
-import { createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { collection, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { sendPasswordResetEmail } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
+import { useAuth } from "@/lib/auth-context";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { toast } from "react-hot-toast";
@@ -12,6 +13,7 @@ import { PlusIcon, PencilIcon, TrashIcon, KeyIcon, ShieldCheckIcon } from "@hero
 import type { Profile } from "@/types/database";
 
 export default function UsersPage() {
+  const { user } = useAuth();
   const [users, setUsers] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -40,15 +42,15 @@ export default function UsersPage() {
         await logAction("update", "profiles", editing.id, { display_name: form.display_name, role: form.role });
         toast.success("Usuario actualizado");
       } else {
-        const userCredential = await createUserWithEmailAndPassword(auth, form.email, form.password);
-        await setDoc(doc(db, "profiles", userCredential.user.uid), {
-          email: form.email,
-          display_name: form.display_name,
-          role: form.role,
-          avatar_url: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+        const idToken = await user?.getIdToken();
+        if (!idToken) { toast.error("Sesion no valida"); return; }
+        const res = await fetch("/api/users/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${idToken}` },
+          body: JSON.stringify({ email: form.email, password: form.password, display_name: form.display_name, role: form.role }),
         });
+        const data = await res.json();
+        if (!res.ok) { toast.error(data.error || "Error al crear usuario"); return; }
         await logAction("create", "profiles", null, { email: form.email, role: form.role });
         toast.success("Usuario creado");
       }

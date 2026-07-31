@@ -1,0 +1,103 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: verificar si el usuario es super_admin
+    function isAdmin() {
+      return exists(/databases/$(database)/documents/profiles/$(request.auth.uid))
+        && get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'super_admin';
+    }
+
+    // Helper: verificar si el usuario esta autenticado
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // ============================================
+    // profiles - Solo admin puede gestionar
+    // ============================================
+    match /profiles/{userId} {
+      // Cualquier autenticado puede leer su propio perfil
+      allow read: if isAuth() && request.auth.uid == userId;
+
+      // Admin puede leer cualquier perfil
+      allow read: if isAuth() && isAdmin();
+
+      // Admin puede crear cualquier perfil
+      allow create: if isAuth() && isAdmin();
+
+      // Admin puede actualizar cualquier perfil
+      // Un usuario puede actualizar su propio perfil (solo campos seguros)
+      allow update: if isAuth() && (
+        isAdmin()
+        || (request.auth.uid == userId
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))
+      );
+
+      // Solo admin puede eliminar
+      allow delete: if isAuth() && isAdmin();
+    }
+
+    // ============================================
+    // children - Cualquier autenticado
+    // ============================================
+    match /children/{childId} {
+      allow read, write: if isAuth();
+    }
+
+    // ============================================
+    // groups - Solo admin puede escribir
+    // ============================================
+    match /groups/{groupId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAuth() && isAdmin();
+    }
+
+    // ============================================
+    // teachers - Solo admin puede escribir
+    // ============================================
+    match /teachers/{teacherId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAuth() && isAdmin();
+    }
+
+    // ============================================
+    // practitioners - Solo admin puede escribir
+    // ============================================
+    match /practitioners/{practitionerId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAuth() && isAdmin();
+    }
+
+    // ============================================
+    // attendance_children - Cualquier autenticado
+    // ============================================
+    match /attendance_children/{attId} {
+      allow read, write: if isAuth();
+    }
+
+    // ============================================
+    // attendance_staff - Cualquier autenticado
+    // ============================================
+    match /attendance_staff/{attId} {
+      allow read, write: if isAuth();
+    }
+
+    // ============================================
+    // audit_logs - Solo admin puede leer, nadie escribe directo
+    // ============================================
+    match /audit_logs/{logId} {
+      allow read: if isAuth() && isAdmin();
+      allow create, update, delete: if false;
+    }
+
+    // ============================================
+    // system_settings - Solo admin puede escribir
+    // ============================================
+    match /system_settings/{settingId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAuth() && isAdmin();
+    }
+  }
+}
