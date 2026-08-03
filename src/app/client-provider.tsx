@@ -78,7 +78,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
       <main className="flex-1 min-w-0">
         <header className="sticky top-0 z-30 glass border-b border-gray-200 dark:border-gray-800">
           <div className="flex h-16 items-center justify-between px-4 lg:px-8">
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+            <button onClick={() => setSidebarOpen(true)} aria-label="Abrir menu de navegacion" aria-expanded={sidebarOpen} aria-controls="sidebar" className="lg:hidden w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>

@@ -106,8 +106,8 @@ export default function UsersPage() {
                   <td className="px-5 py-3.5"><span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${u.role === "super_admin" ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>{u.role === "super_admin" ? "Super Admin" : "Operador"}</span></td>
                   <td className="px-5 py-3.5 text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => openEdit(u)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"><PencilIcon className="w-4 h-4" /></button>
-                      <button onClick={() => setDeleteConfirm(u.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-4 h-4" /></button>
+<button onClick={() => openEdit(u)} aria-label="Editar usuario" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"><PencilIcon className="w-4 h-4" /></button>
+                       <button onClick={() => setDeleteConfirm(u.id)} aria-label="Eliminar usuario" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

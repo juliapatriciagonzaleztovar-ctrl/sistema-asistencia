@@ -72,7 +72,7 @@ export default function GroupsPage() {
               <div className="p-5">
                 <div className="flex items-start justify-between">
                   <div><h3 className="text-lg font-bold text-gray-900 dark:text-white">{g.name}</h3><p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{g.description || "Sin descripcion"}</p></div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => openEdit(g)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"><PencilIcon className="w-4 h-4" /></button><button onClick={() => setDeleteConfirm(g.id)} className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-4 h-4" /></button></div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => openEdit(g)} aria-label="Editar grupo" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"><PencilIcon className="w-4 h-4" /></button><button onClick={() => setDeleteConfirm(g.id)} aria-label="Eliminar grupo" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-4 h-4" /></button></div>
                 </div>
               </div>
             </div>

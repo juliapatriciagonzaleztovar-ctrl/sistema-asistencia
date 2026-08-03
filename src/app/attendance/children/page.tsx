@@ -160,7 +160,7 @@ export default function ChildrenAttendancePage() {
                   </>
                 )}
                 {isAdmin && item.existing && (
-                  <button onClick={() => openEdit(item)} className="flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-95" title="Corregir asistencia">
+                  <button onClick={() => openEdit(item)} aria-label="Corregir asistencia" className="flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-95">
                     <PencilIcon className="w-4 h-4" />
                   </button>
                 )}

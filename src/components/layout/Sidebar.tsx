@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
@@ -48,6 +49,15 @@ export function Sidebar({ open, onClose }: SidebarProps) {
   const { user, profile, signOut } = useAuth();
   const isAdmin = profile?.role === "super_admin";
 
+  React.useEffect(() => {
+    if (!open) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
   function isActive(href: string) {
     return pathname === href || pathname.startsWith(href + "/");
   }
@@ -66,9 +76,12 @@ export function Sidebar({ open, onClose }: SidebarProps) {
           open ? "opacity-100" : "opacity-0 pointer-events-none"
         }`}
         onClick={onClose}
+        aria-hidden="true"
       />
 
       <aside
+        id="sidebar"
+        aria-label="Menu de navegacion"
         className={`fixed left-0 top-0 z-50 flex h-screen w-[280px] flex-col bg-white dark:bg-[#141c2e] border-r border-gray-200 dark:border-gray-800 transition-transform duration-300 ease-out lg:translate-x-0 lg:static lg:z-auto ${
           open ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -85,18 +98,18 @@ export function Sidebar({ open, onClose }: SidebarProps) {
               <span className="block text-[11px] font-medium text-gray-400 dark:text-gray-500 -mt-0.5">Institucion Infantil</span>
             </div>
           </Link>
-          <button onClick={onClose} className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
+          <button onClick={onClose} aria-label="Cerrar menu" className="lg:hidden w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800">
             <XMarkIcon className="w-5 h-5" />
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-4 py-5 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-4 py-5 space-y-1" aria-label="Navegacion principal">
           <div className="mb-3 px-3 text-[11px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">Principal</div>
           {mainNav.map((item) => {
             const Icon = item.icon;
             return (
               <Link key={item.name} href={item.href} onClick={onClose} className={linkClass(isActive(item.href))}>
-                <Icon className="w-5 h-5" />
+                <Icon className="w-5 h-5" aria-hidden="true" />
                 {item.name}
               </Link>
             );
@@ -108,7 +121,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 const Icon = item.icon;
                 return (
                   <Link key={item.name} href={item.href} onClick={onClose} className={linkClass(isActive(item.href))}>
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-5 h-5" aria-hidden="true" />
                     {item.name}
                   </Link>
                 );
@@ -118,7 +131,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
                 const Icon = item.icon;
                 return (
                   <Link key={item.name} href={item.href} onClick={onClose} className={linkClass(isActive(item.href))}>
-                    <Icon className="w-5 h-5" />
+                    <Icon className="w-5 h-5" aria-hidden="true" />
                     {item.name}
                   </Link>
                 );
@@ -138,7 +151,7 @@ export function Sidebar({ open, onClose }: SidebarProps) {
             </div>
           </div>
           <button onClick={signOut} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-semibold text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 transition-all">
-            <ArrowLeftOnRectangleIcon className="w-5 h-5" />
+            <ArrowLeftOnRectangleIcon className="w-5 h-5" aria-hidden="true" />
             Cerrar sesion
           </button>
         </div>

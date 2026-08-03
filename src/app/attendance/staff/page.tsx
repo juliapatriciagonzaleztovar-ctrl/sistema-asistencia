@@ -175,7 +175,7 @@ export default function StaffAttendancePage() {
                     {!item.attendance.check_in ? (
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white shadow-md text-sm font-bold"><XCircleIcon className="w-4 h-4" />No asistio</div>
-                        <button onClick={() => { setCorrectionItem(item); setCorrectionReason(""); }} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 transition-all active:scale-95" title="Solicitar correccion">
+                        <button onClick={() => { setCorrectionItem(item); setCorrectionReason(""); }} aria-label="Solicitar correccion" className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 transition-all active:scale-95">
                           <ArrowPathIcon className="w-4 h-4" />
                         </button>
                       </div>
@@ -183,7 +183,7 @@ export default function StaffAttendancePage() {
                       <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20"><CheckCircleIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Presente</span><span className="text-xs text-gray-400">{item.attendance.check_in ? formatTime(item.attendance.check_in) : ""}</span></div>
                     )}
                     {isAdmin && (
-                      <button onClick={() => openEdit(item)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-95" title="Corregir asistencia">
+                      <button onClick={() => openEdit(item)} aria-label="Corregir asistencia" className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-95">
                         <PencilIcon className="w-4 h-4" />
                       </button>
                     )}
@@ -215,8 +215,8 @@ export default function StaffAttendancePage() {
       </div>
 
       {showSignature && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/50" onClick={() => { setShowSignature(false); setSigningFor(null); }} />
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Firma digital">
+          <div className="fixed inset-0 bg-black/50" onClick={() => { setShowSignature(false); setSigningFor(null); }} aria-hidden="true" />
           <div className="relative bg-white dark:bg-[#1a2438] rounded-2xl p-6 w-full max-w-lg shadow-2xl animate-fade-in">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Firma Digital</h3>
             <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Firma con el dedo o con el mouse.</p>

@@ -263,10 +263,13 @@ export default function ReportsPage() {
               </button>
             ))}
             {reportTab === "children" && (
-              <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className="px-4 py-2 rounded-xl text-[13px] font-semibold bg-white dark:bg-[#1a2438] text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-                <option value="all">Todos los grupos</option>
-                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-              </select>
+              <>
+                <label htmlFor="reports-group-filter" className="text-sm font-semibold text-gray-900 dark:text-white">Grupo:</label>
+                <select id="reports-group-filter" value={groupId} onChange={(e) => setGroupId(e.target.value)} aria-label="Filtrar por grupo" className="px-4 py-2 rounded-xl text-[13px] font-semibold bg-white dark:bg-[#1a2438] text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                  <option value="all">Todos los grupos</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </>
             )}
           </div>
 
@@ -329,8 +332,8 @@ export default function ReportsPage() {
       {reportType === "specific" && (
         <>
           <div className="flex flex-wrap items-center gap-3">
-            <label className="text-sm font-semibold text-gray-900 dark:text-white">Seleccionar fecha:</label>
-            <input type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-[#1a2438] text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
+            <label htmlFor="reports-date" className="text-sm font-semibold text-gray-900 dark:text-white">Seleccionar fecha:</label>
+            <input id="reports-date" type="date" value={selectedDate} onChange={(e) => setSelectedDate(e.target.value)} aria-label="Seleccionar fecha para reporte" className="px-4 py-2 rounded-xl text-sm font-semibold bg-white dark:bg-[#1a2438] text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
