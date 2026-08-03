@@ -5,10 +5,10 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
-import { registerStaffAttendance, autoMarkAbsentStaff, updateStaffAttendance } from "@/lib/attendance";
+import { registerStaffAttendance, registerStaffAbsent, autoMarkAbsentStaff, updateStaffAttendance } from "@/lib/attendance";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
-import { PencilIcon, CheckCircleIcon, ClockIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { Modal } from "@/components/ui/Modal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { Teacher, Practitioner, AttendanceStaff } from "@/types/database";
@@ -36,7 +36,7 @@ export default function StaffAttendancePage() {
     const today = getTodayDate();
     if (user) {
       const autoMarked = await autoMarkAbsentStaff(user.uid);
-      if (autoMarked > 0) toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 6:00pm)`, { icon: "ℹ️" });
+      if (autoMarked > 0) toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 4:30pm)`, { icon: "\u2139\uFE0F" });
     }
     const [teachersData, practitionersData, attendanceData] = await Promise.all([
       getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
@@ -49,6 +49,16 @@ export default function StaffAttendancePage() {
       ...practitionersData.docs.map((d) => ({ staff: { id: d.id, ...d.data() } as Practitioner, type: "practitioner" as const, attendance: attList.find((a) => a.staff_id === d.id && a.staff_type === "practitioner") || null })),
     ]);
     setLoading(false);
+  }
+
+  async function markAbsent(item: StaffItem) {
+    if (!user) return;
+    try {
+      await registerStaffAbsent(item.staff.id, item.type, user.uid);
+      await logAction("create", "attendance_staff", null, { staff_id: item.staff.id, staff_name: `${item.staff.first_name} ${item.staff.last_name}`, staff_type: item.type, signed: false, status: "absent" });
+      toast.success(`${item.staff.first_name} - No asistio`);
+      loadData();
+    } catch { toast.error("Error al marcar"); }
   }
 
   function startSignature(item: StaffItem) {
@@ -91,21 +101,14 @@ export default function StaffAttendancePage() {
     } catch { toast.error("Error al registrar"); }
   }, [signingFor, user]);
 
-  function openEdit(item: StaffItem) {
-    setEditItem(item);
-    setEditNote("");
-  }
+  function openEdit(item: StaffItem) { setEditItem(item); setEditNote(""); }
 
   async function saveEdit() {
     if (!editItem?.attendance || !editNote.trim() || !user) return;
     setSavingEdit(true);
     try {
       await updateStaffAttendance(editItem.attendance.id, editItem.attendance.check_in, editNote.trim(), user.uid);
-      await logAction("update", "attendance_staff", editItem.attendance.id, {
-        staff_name: `${editItem.staff.first_name} ${editItem.staff.last_name}`,
-        staff_type: editItem.type,
-        note: editNote.trim(),
-      });
+      await logAction("update", "attendance_staff", editItem.attendance.id, { staff_name: `${editItem.staff.first_name} ${editItem.staff.last_name}`, staff_type: editItem.type, note: editNote.trim() });
       toast.success("Asistencia corregida");
       setEditItem(null);
       loadData();
@@ -113,38 +116,59 @@ export default function StaffAttendancePage() {
     setSavingEdit(false);
   }
 
+  const totalPresent = items.filter((i) => i.attendance?.check_in && i.attendance?.status !== "absent").length;
+  const totalAbsent = items.filter((i) => i.attendance?.status === "absent" || (i.attendance && !i.attendance.check_in && i.attendance.status === "absent")).length;
+  const isAfterAutoMark = now.getHours() >= 16 && now.getMinutes() >= 30;
+  const unmarked = items.filter((i) => !i.attendance).length;
+
   if (loading) return <LoadingSpinner label="Cargando..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center gap-3">
         <div className="w-11 h-11 rounded-xl gradient-success flex items-center justify-center shadow-md"><UserGroupIcon className="w-6 h-6 text-white" /></div>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Asistencia de Personal</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><ClockIcon className="w-4 h-4" />{date} - {formatTime(now.toISOString())}</p>
-        </div>
+        <div><h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Asistencia de Personal</h1><p className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2"><ClockIcon className="w-4 h-4" />{date} - {formatTime(now.toISOString())}</p></div>
+      </div>
+
+      <div className={`px-4 py-2 rounded-xl text-sm font-semibold ${isAfterAutoMark ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400"}`}>
+        {isAfterAutoMark ? `Cierre del dia · ${totalPresent + totalAbsent} registrados` : `${unmarked} pendientes · Auto-cierre a las 4:30pm`}
+      </div>
+
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-4 text-center border border-gray-100 dark:border-gray-800"><p className="text-3xl font-bold text-gray-900 dark:text-white">{items.length}</p><p className="text-xs font-medium text-gray-400">Total</p></div>
+        <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-4 text-center border border-gray-100 dark:border-gray-800"><p className="text-3xl font-bold text-emerald-500">{totalPresent}</p><p className="text-xs font-medium text-gray-400">Presentes</p></div>
+        <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-4 text-center border border-gray-100 dark:border-gray-800"><p className="text-3xl font-bold text-red-500">{totalAbsent}</p><p className="text-xs font-medium text-gray-400">Ausentes</p></div>
       </div>
 
       <div className="space-y-2">
         {items.map((item) => (
-          <div key={`${item.type}-${item.staff.id}`} className={`bg-white dark:bg-[#1a2438] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm transition-all ${item.attendance ? "opacity-60" : ""}`}>
+          <div key={`${item.type}-${item.staff.id}`} className="bg-white dark:bg-[#1a2438] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm transition-all">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold ${item.type === "teacher" ? "gradient-success" : "gradient-warm"}`}>{item.staff.first_name.charAt(0)}{item.staff.last_name.charAt(0)}</div>
                 <div><h3 className="font-bold text-gray-900 dark:text-white text-sm">{item.staff.first_name} {item.staff.last_name}</h3><p className="text-[11px] text-gray-400">{item.type === "teacher" ? "Profesor" : "Practicante"}</p></div>
               </div>
-              {item.attendance ? (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20"><CheckCircleIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Presente</span><span className="text-xs text-gray-400">{item.attendance.check_in ? formatTime(item.attendance.check_in) : ""}</span></div>
-                  {isAdmin && (
-                    <button onClick={() => openEdit(item)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-95" title="Corregir asistencia">
-                      <PencilIcon className="w-4 h-4" />
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <button onClick={() => startSignature(item)} className="flex items-center gap-2 px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"><PencilIcon className="w-4 h-4" />Firmar</button>
-              )}
+              <div className="flex items-center gap-2">
+                {item.attendance ? (
+                  <>
+                    {item.attendance.status === "absent" || (!item.attendance.check_in && item.attendance.status === "absent") ? (
+                      <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white shadow-md text-sm font-bold"><XCircleIcon className="w-4 h-4" />No asistio</div>
+                    ) : (
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20"><CheckCircleIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Presente</span><span className="text-xs text-gray-400">{item.attendance.check_in ? formatTime(item.attendance.check_in) : ""}</span></div>
+                    )}
+                    {isAdmin && (
+                      <button onClick={() => openEdit(item)} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-primary/10 text-primary hover:bg-primary/20 transition-all active:scale-95" title="Corregir asistencia">
+                        <PencilIcon className="w-4 h-4" />
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <button onClick={() => startSignature(item)} className="flex items-center gap-2 px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"><PencilIcon className="w-4 h-4" />Firmar</button>
+                    <button onClick={() => markAbsent(item)} className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 font-semibold rounded-xl active:scale-95 transition-all"><XCircleIcon className="w-4 h-4" />No asistio</button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         ))}
@@ -177,14 +201,8 @@ export default function StaffAttendancePage() {
               <p className="font-bold text-gray-900 dark:text-white">{editItem.staff.first_name} {editItem.staff.last_name}</p>
               <p className="text-sm text-gray-500 dark:text-gray-400">{editItem.type === "teacher" ? "Profesor" : "Practicante"}</p>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Motivo de la correccion *</label>
-              <textarea value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Ej: Se registro por error, el personal si asistio..." rows={3} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-none" />
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-              <button type="button" onClick={() => setEditItem(null)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-colors">Cancelar</button>
-              <button onClick={saveEdit} disabled={!editNote.trim() || savingEdit} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md disabled:opacity-50">{savingEdit ? "Guardando..." : "Corregir"}</button>
-            </div>
+            <div><label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Motivo de la correccion *</label><textarea value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="Ej: Se registro por error, el personal si asistio..." rows={3} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-none" /></div>
+            <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setEditItem(null)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-colors">Cancelar</button><button onClick={saveEdit} disabled={!editNote.trim() || savingEdit} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md disabled:opacity-50">{savingEdit ? "Guardando..." : "Corregir"}</button></div>
           </div>
         )}
       </Modal>

@@ -65,6 +65,7 @@ export interface AttendanceChild {
   child_id: string;
   attendance_date: string;
   status: "present" | "absent";
+  check_in: string | null;
   registered_by: string | null;
   created_at: string;
   updated_at: string;

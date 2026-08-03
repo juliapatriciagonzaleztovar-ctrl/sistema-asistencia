@@ -26,6 +26,32 @@ export async function getChildrenAttendanceByChild(childId: string, date?: strin
   return { id: doc.id, ...doc.data() } as AttendanceChild;
 }
 
+export async function registerSingleChildAttendance(
+  childId: string,
+  status: "present" | "absent",
+  userId: string
+) {
+  const today = getTodayDate();
+  const existingSnap = await getDocs(
+    query(
+      collection(getFirebaseDb(), "attendance_children"),
+      where("child_id", "==", childId),
+      where("attendance_date", "==", today)
+    )
+  );
+  if (!existingSnap.empty) return existingSnap.docs[0].id;
+
+  const docRef = await addDoc(collection(getFirebaseDb(), "attendance_children"), {
+    child_id: childId,
+    attendance_date: today,
+    status,
+    check_in: status === "present" ? new Date().toISOString() : null,
+    registered_by: userId,
+    created_at: new Date().toISOString(),
+  });
+  return docRef.id;
+}
+
 export async function registerBulkChildAttendance(
   attendances: Array<{ childId: string; status: "present" | "absent" }>,
   userId: string
@@ -129,9 +155,44 @@ export async function getAllStaffAttendance(date?: string) {
   };
 }
 
+export async function registerStaffAbsent(
+  staffId: string,
+  staffType: "teacher" | "practitioner",
+  userId: string
+) {
+  const today = getTodayDate();
+  const existingSnap = await getDocs(
+    query(
+      collection(getFirebaseDb(), "attendance_staff"),
+      where("staff_id", "==", staffId),
+      where("staff_type", "==", staffType),
+      where("attendance_date", "==", today)
+    )
+  );
+  if (!existingSnap.empty) {
+    const docRef = existingSnap.docs[0].ref;
+    await updateDoc(docRef, { status: "absent", check_in: null });
+    return existingSnap.docs[0].id;
+  }
+  const docRef = await addDoc(collection(getFirebaseDb(), "attendance_staff"), {
+    staff_id: staffId,
+    staff_type: staffType,
+    attendance_date: today,
+    check_in: null,
+    check_out: null,
+    status: "absent",
+    signature_url: null,
+    registered_by: userId,
+    created_at: new Date().toISOString(),
+  });
+  return docRef.id;
+}
+
 export async function autoMarkAbsentChildren(userId: string) {
   const now = new Date();
-  if (now.getHours() < 18) return 0;
+  const hour = now.getHours();
+  const minutes = now.getMinutes();
+  if (hour < 17 || (hour === 17 && minutes < 50)) return 0;
   const today = getTodayDate();
   const [childrenSnap, attendanceSnap] = await Promise.all([
     getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
@@ -158,7 +219,9 @@ export async function autoMarkAbsentChildren(userId: string) {
 
 export async function autoMarkAbsentStaff(userId: string) {
   const now = new Date();
-  if (now.getHours() < 18) return 0;
+  const hour = now.getHours();
+  const minutes = now.getMinutes();
+  if (hour < 16 || (hour === 16 && minutes < 30)) return 0;
   const today = getTodayDate();
   const [teachersSnap, practitionersSnap, attendanceSnap] = await Promise.all([
     getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
