@@ -78,7 +78,7 @@ export interface AttendanceStaff {
   attendance_date: string;
   check_in: string | null;
   check_out: string | null;
-  status: string | null;
+  status: "present" | "absent" | null;
   signature_url: string | null;
   registered_by: string | null;
   auto_marked: boolean | null;

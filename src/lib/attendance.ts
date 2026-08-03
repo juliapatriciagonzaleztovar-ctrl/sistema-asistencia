@@ -1,30 +1,10 @@
 import {
   collection, query, where, getDocs, addDoc, updateDoc, doc,
-  orderBy, writeBatch, documentId
+  orderBy, writeBatch
 } from "firebase/firestore";
 import { getFirebaseDb } from "./firebase";
 import type { AttendanceChild, AttendanceStaff } from "@/types/database";
 import { getTodayDate } from "./utils";
-
-export async function getChildrenAttendance(date?: string) {
-  const targetDate = date || getTodayDate();
-  const q = query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", targetDate));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
-}
-
-export async function getChildrenAttendanceByChild(childId: string, date?: string) {
-  const targetDate = date || getTodayDate();
-  const q = query(
-    collection(getFirebaseDb(), "attendance_children"),
-    where("child_id", "==", childId),
-    where("attendance_date", "==", targetDate)
-  );
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  const doc = snapshot.docs[0];
-  return { id: doc.id, ...doc.data() } as AttendanceChild;
-}
 
 export async function registerSingleChildAttendance(
   childId: string,
@@ -50,47 +30,6 @@ export async function registerSingleChildAttendance(
     created_at: new Date().toISOString(),
   });
   return docRef.id;
-}
-
-export async function registerBulkChildAttendance(
-  attendances: Array<{ childId: string; status: "present" | "absent" }>,
-  userId: string
-) {
-  const today = getTodayDate();
-  const childIds = attendances.map((a) => a.childId);
-
-  const existingSnap = await getDocs(
-    query(
-      collection(getFirebaseDb(), "attendance_children"),
-      where("attendance_date", "==", today),
-      where("child_id", "in", childIds.slice(0, 30))
-    )
-  );
-  const existingIds = new Set(existingSnap.docs.map((d) => d.data().child_id as string));
-
-  const batch = writeBatch(getFirebaseDb());
-  for (const a of attendances) {
-    if (!existingIds.has(a.childId)) {
-      const docRef = doc(collection(getFirebaseDb(), "attendance_children"));
-      batch.set(docRef, {
-        child_id: a.childId,
-        attendance_date: today,
-        status: a.status,
-        registered_by: userId,
-        created_at: new Date().toISOString(),
-      });
-    }
-  }
-
-  await batch.commit();
-  return attendances.length;
-}
-
-export async function getAllChildrenAttendance(date?: string) {
-  const targetDate = date || getTodayDate();
-  const q = query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", targetDate));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
 }
 
 export async function registerStaffAttendance(
@@ -129,30 +68,6 @@ export async function registerStaffAttendance(
   });
 
   return { id: docRef.id, staff_id: staffId, staff_type: staffType, attendance_date: today, check_in: new Date().toISOString(), check_out: null, signature_url: signatureUrl, registered_by: userId } as AttendanceStaff;
-}
-
-export async function getStaffAttendanceByToday(staffId: string, staffType: "teacher" | "practitioner") {
-  const today = getTodayDate();
-  const q = query(
-    collection(getFirebaseDb(), "attendance_staff"),
-    where("staff_id", "==", staffId),
-    where("staff_type", "==", staffType),
-    where("attendance_date", "==", today)
-  );
-  const snapshot = await getDocs(q);
-  if (snapshot.empty) return null;
-  return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as AttendanceStaff;
-}
-
-export async function getAllStaffAttendance(date?: string) {
-  const targetDate = date || getTodayDate();
-  const q = query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", targetDate));
-  const snapshot = await getDocs(q);
-  const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceStaff));
-  return {
-    teachers: all.filter((a) => a.staff_type === "teacher"),
-    practitioners: all.filter((a) => a.staff_type === "practitioner"),
-  };
 }
 
 export async function registerStaffAbsent(

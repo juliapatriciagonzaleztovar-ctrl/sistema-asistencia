@@ -1,5 +1,5 @@
-import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut, onAuthStateChanged, type User } from "firebase/auth";
-import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, query, orderBy } from "firebase/firestore";
+import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider, signOut as fbSignOut, type User } from "firebase/auth";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 import type { Profile } from "@/types/database";
 
@@ -19,14 +19,6 @@ export async function signOut() {
   await fbSignOut(getFirebaseAuth());
 }
 
-export function onAuthChange(callback: (user: User | null) => void) {
-  return onAuthStateChanged(getFirebaseAuth(), callback);
-}
-
-export async function getCurrentUser(): Promise<User | null> {
-  return getFirebaseAuth().currentUser;
-}
-
 export async function getProfile(): Promise<Profile | null> {
   const user = getFirebaseAuth().currentUser;
   if (!user) return null;
@@ -34,19 +26,6 @@ export async function getProfile(): Promise<Profile | null> {
   const docSnap = await getDoc(docRef);
   if (!docSnap.exists()) return null;
   return { id: docSnap.id, ...docSnap.data() } as Profile;
-}
-
-export async function getProfileById(uid: string): Promise<Profile | null> {
-  const docRef = doc(getFirebaseDb(), "profiles", uid);
-  const docSnap = await getDoc(docRef);
-  if (!docSnap.exists()) return null;
-  return { id: docSnap.id, ...docSnap.data() } as Profile;
-}
-
-export async function getAllProfiles(): Promise<Profile[]> {
-  const q = query(collection(getFirebaseDb(), "profiles"), orderBy("display_name"));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as Profile));
 }
 
 export async function createProfile(
@@ -61,27 +40,4 @@ export async function createProfile(
     role,
     created_at: new Date().toISOString(),
   });
-}
-
-export async function updateProfile(
-  id: string,
-  updates: Partial<{ display_name: string; role: string }>
-) {
-  const { updateProfile: fbUpdate } = await import("firebase/auth");
-  const authRef = getFirebaseAuth();
-  if (authRef.currentUser?.uid === id && updates.display_name) {
-    await fbUpdate(authRef.currentUser, { displayName: updates.display_name });
-  }
-  const { updateDoc } = await import("firebase/firestore");
-  await updateDoc(doc(getFirebaseDb(), "profiles", id), updates);
-}
-
-export async function deleteProfile(id: string) {
-  const { deleteUser } = await import("firebase/auth");
-  const authRef = getFirebaseAuth();
-  if (authRef.currentUser?.uid === id) {
-    await deleteUser(authRef.currentUser);
-  }
-  const { deleteDoc } = await import("firebase/firestore");
-  await deleteDoc(doc(getFirebaseDb(), "profiles", id));
 }

@@ -137,8 +137,8 @@ export default function StaffAttendancePage() {
     } catch { toast.error("Error al enviar solicitud"); }
   }
 
-  const totalPresent = items.filter((i) => i.attendance?.check_in && i.attendance?.status !== "absent").length;
-  const totalAbsent = items.filter((i) => i.attendance?.status === "absent" || (i.attendance && !i.attendance.check_in && i.attendance.status === "absent")).length;
+  const totalPresent = items.filter((i) => i.attendance?.check_in).length;
+  const totalAbsent = items.filter((i) => i.attendance && !i.attendance.check_in).length;
   const isAfterAutoMark = now.getHours() >= 16 && now.getMinutes() >= 30;
   const unmarked = items.filter((i) => !i.attendance).length;
 
@@ -172,7 +172,7 @@ export default function StaffAttendancePage() {
               <div className="flex items-center gap-2">
                 {item.attendance ? (
                   <>
-                    {item.attendance.status === "absent" || (!item.attendance.check_in && item.attendance.status === "absent") ? (
+                    {!item.attendance.check_in ? (
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white shadow-md text-sm font-bold"><XCircleIcon className="w-4 h-4" />No asistio</div>
                         <button onClick={() => { setCorrectionItem(item); setCorrectionReason(""); }} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 transition-all active:scale-95" title="Solicitar correccion">
