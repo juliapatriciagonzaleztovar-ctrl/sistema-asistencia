@@ -7,6 +7,8 @@ import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
 import { PlusIcon, PencilIcon, TrashIcon, KeyIcon, ShieldCheckIcon } from "@heroicons/react/24/outline";
@@ -77,9 +79,7 @@ export default function UsersPage() {
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Error al restablecer"); }
   }
 
-  if (loading) {
-    return <div className="flex h-64 items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /><span className="text-sm font-medium text-gray-500 dark:text-gray-400">Cargando usuarios...</span></div></div>;
-  }
+  if (loading) return <LoadingSpinner label="Cargando usuarios..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -122,11 +122,7 @@ export default function UsersPage() {
           <Input label="Nombre completo" value={form.display_name} onChange={(e) => setForm({ ...form, display_name: e.target.value })} required />
           {!editing && (<><Input label="Correo electronico" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required /><Input label="Contrasena" type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required minLength={6} /></>)}
           <div>
-            <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Rol</label>
-            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "super_admin" | "operator" })} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
-              <option value="operator">Operador</option>
-              <option value="super_admin">Super Administrador</option>
-            </select>
+            <Select label="Rol" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as "super_admin" | "operator" })} options={[{ value: "operator", label: "Operador" }, { value: "super_admin", label: "Super Administrador" }]} />
           </div>
           <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-colors">Cancelar</button><button type="submit" className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md">{editing ? "Actualizar" : "Crear"}</button></div>
         </form>

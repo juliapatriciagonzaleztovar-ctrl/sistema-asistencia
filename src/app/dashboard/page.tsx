@@ -6,6 +6,7 @@ import { collection, query, where, getDocs } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { UserGroupIcon, AcademicCapIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon, ArrowTrendingUpIcon } from "@heroicons/react/24/outline";
 import { DynamicBarChart } from "@/components/charts/DynamicCharts";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 
 interface Stats { totalChildren: number; totalTeachers: number; totalPractitioners: number; monthPresent: number; monthAbsent: number; lastAttendance: string; }
 interface MonthlyData { month: string; presentes: number; ausentes: number; }
@@ -88,9 +89,7 @@ export default function DashboardPage() {
     setLoading(false);
   }
 
-  if (loading || authLoading) {
-    return <div className="flex h-64 items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
-  }
+  if (loading || authLoading) return <LoadingSpinner label="Cargando dashboard..." />;
 
   const statCards = [
     { title: "Ninos registrados", value: stats.totalChildren, icon: UserGroupIcon, gradient: "gradient-primary" },

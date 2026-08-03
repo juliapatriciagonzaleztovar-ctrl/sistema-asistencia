@@ -7,6 +7,7 @@ import { exportToExcel, exportToPDF, exportToPDFDetail, type PDFDetailRow } from
 import { getTodayDate } from "@/lib/utils";
 import { DocumentArrowDownIcon, ChartBarIcon, UserGroupIcon, AcademicCapIcon, CalendarDaysIcon, TableCellsIcon } from "@heroicons/react/24/outline";
 import { DynamicBarChart, DynamicPieChart } from "@/components/charts/DynamicCharts";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { Child, Group, AttendanceChild, Teacher, Practitioner, AttendanceStaff } from "@/types/database";
 
 interface ReportRow { childName: string; groupName: string; totalPresent: number; totalAbsent: number; percentage: number; }
@@ -220,9 +221,7 @@ export default function ReportsPage() {
   const specificPresent = specificData.filter((r) => r.status === "present").length;
   const specificAbsent = specificData.filter((r) => r.status === "absent").length;
 
-  if (loading) {
-    return <div className="flex h-64 items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /><span className="text-sm font-medium text-gray-500 dark:text-gray-400">Generando reportes...</span></div></div>;
-  }
+  if (loading) return <LoadingSpinner label="Generando reportes..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">

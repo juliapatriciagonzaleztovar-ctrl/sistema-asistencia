@@ -10,6 +10,7 @@ import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
 import { PencilIcon, CheckCircleIcon, ClockIcon, UserGroupIcon } from "@heroicons/react/24/outline";
 import { Modal } from "@/components/ui/Modal";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { Teacher, Practitioner, AttendanceStaff } from "@/types/database";
 
 interface StaffItem { staff: Teacher | Practitioner; type: "teacher" | "practitioner"; attendance: AttendanceStaff | null; }
@@ -112,7 +113,7 @@ export default function StaffAttendancePage() {
     setSavingEdit(false);
   }
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <LoadingSpinner label="Cargando..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">

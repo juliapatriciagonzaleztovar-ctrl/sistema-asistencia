@@ -10,6 +10,7 @@ import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
 import { CheckCircleIcon, XCircleIcon, ClockIcon, ClipboardDocumentCheckIcon, PencilIcon } from "@heroicons/react/24/outline";
 import { Modal } from "@/components/ui/Modal";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { Child, Group, AttendanceChild } from "@/types/database";
 
 interface ChildItem { child: Child; existing: AttendanceChild | null; selectedStatus: "present" | "absent" | null; }
@@ -103,7 +104,7 @@ export default function ChildrenAttendancePage() {
 
   const filtered = selectedGroup === "all" ? items : items.filter((i) => i.child.group_id === selectedGroup);
 
-  if (loading) return <div className="flex h-64 items-center justify-center"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
+  if (loading) return <LoadingSpinner label="Cargando..." />;
 
   return (
     <div className="space-y-6 animate-fade-in">

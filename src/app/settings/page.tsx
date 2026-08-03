@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
+import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
 import { Cog6ToothIcon } from "@heroicons/react/24/outline";
@@ -43,9 +44,7 @@ export default function SettingsPage() {
     setSaving(false);
   }
 
-  if (loading) {
-    return <div className="flex h-64 items-center justify-center"><div className="flex flex-col items-center gap-3"><div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" /><span className="text-sm font-medium text-gray-500 dark:text-gray-400">Cargando configuracion...</span></div></div>;
-  }
+  if (loading) return <LoadingSpinner label="Cargando configuracion..." />;
 
   const settingFields = [
     { key: "institution_name", label: "Nombre de la institucion", placeholder: "Ej: Instituto Infantil ABC" },
