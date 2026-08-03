@@ -43,11 +43,12 @@ export async function createCorrectionRequest(
 export async function getPendingCorrections(): Promise<CorrectionRequest[]> {
   const q = query(
     collection(getFirebaseDb(), "correction_requests"),
-    where("status", "==", "pending"),
-    orderBy("created_at", "desc")
+    where("status", "==", "pending")
   );
   const snapshot = await getDocs(q);
-  return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as CorrectionRequest));
+  const results = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as CorrectionRequest));
+  results.sort((a, b) => b.created_at.localeCompare(a.created_at));
+  return results;
 }
 
 export async function approveCorrection(correctionId: string) {
