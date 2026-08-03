@@ -77,7 +77,7 @@ export async function exportToPDFDetail(
   includeSignature: boolean
 ) {
   const { jsPDF, autoTable } = await getPdfLibs();
-  const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+  const doc = new jsPDF({ orientation: includeSignature ? "landscape" : "portrait", unit: "mm", format: "a4" });
 
   doc.setFontSize(16);
   doc.text(title, 14, 18);
@@ -104,7 +104,7 @@ export async function exportToPDFDetail(
     head: [headers],
     body: body as never[][],
     startY: 30,
-    styles: { fontSize: 8, cellPadding: 2.5 },
+    styles: { fontSize: includeSignature ? 8 : 10, cellPadding: includeSignature ? 2.5 : 3 },
     headStyles: { fillColor: [37, 99, 235], textColor: 255 },
     alternateRowStyles: { fillColor: [240, 245, 255] },
     columnStyles: includeSignature ? {
@@ -113,7 +113,12 @@ export async function exportToPDFDetail(
       2: { cellWidth: 30 },
       3: { cellWidth: 30 },
       4: { cellWidth: 55 },
-    } : {},
+    } : {
+      0: { cellWidth: 65 },
+      1: { cellWidth: 40 },
+      2: { cellWidth: 40 },
+      3: { cellWidth: 35 },
+    },
   };
 
   autoTable(doc, tableOptions);

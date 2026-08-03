@@ -131,8 +131,8 @@ export default function ReportsPage() {
           name: `${child.first_name} ${child.last_name}`,
           groupOrType: groupName,
           date: dateFormatted,
-          status: att?.status || "sin registro",
-          statusLabel: att?.status === "present" ? "Asistio" : att?.status === "absent" ? "No asistio" : "Sin registro",
+          status: att?.status || "absent",
+          statusLabel: att?.status === "present" ? "Asistio" : "No asistio",
           signatureUrl: null,
         };
       });
@@ -146,8 +146,8 @@ export default function ReportsPage() {
             name: `${t.first_name} ${t.last_name}`,
             groupOrType: "Profesor",
             date: dateFormatted,
-            status: att ? (att.status === "absent" && !att.check_in ? "absent" : "present") : "sin registro",
-            statusLabel: att ? (att.status === "absent" && !att.check_in ? "No asistio" : "Asistio") : "Sin registro",
+            status: att ? (att.status === "absent" && !att.check_in ? "absent" : "present") : "absent",
+            statusLabel: att ? (att.status === "absent" && !att.check_in ? "No asistio" : "Asistio") : "No asistio",
             signatureUrl: att?.signature_url || null,
           };
         }),
@@ -158,8 +158,8 @@ export default function ReportsPage() {
             name: `${p.first_name} ${p.last_name}`,
             groupOrType: "Practicante",
             date: dateFormatted,
-            status: att ? (att.status === "absent" && !att.check_in ? "absent" : "present") : "sin registro",
-            statusLabel: att ? (att.status === "absent" && !att.check_in ? "No asistio" : "Asistio") : "Sin registro",
+            status: att ? (att.status === "absent" && !att.check_in ? "absent" : "present") : "absent",
+            statusLabel: att ? (att.status === "absent" && !att.check_in ? "No asistio" : "Asistio") : "No asistio",
             signatureUrl: att?.signature_url || null,
           };
         }),
