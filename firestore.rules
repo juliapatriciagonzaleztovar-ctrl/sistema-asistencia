@@ -93,6 +93,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // correction_requests - Cualquiera puede crear, solo admin lee/resuelve
+    // ============================================
+    match /correction_requests/{reqId} {
+      allow read: if isAuth() && isAdmin();
+      allow create: if isAuth();
+      allow update: if isAuth() && isAdmin();
+      allow delete: if false;
+    }
+
+    // ============================================
     // system_settings - Solo admin puede escribir
     // ============================================
     match /system_settings/{settingId} {

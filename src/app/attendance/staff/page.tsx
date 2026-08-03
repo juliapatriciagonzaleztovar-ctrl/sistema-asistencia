@@ -6,10 +6,12 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
 import { registerStaffAttendance, registerStaffAbsent, autoMarkAbsentStaff, updateStaffAttendance } from "@/lib/attendance";
+import { createCorrectionRequest } from "@/lib/corrections";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
-import { PencilIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UserGroupIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UserGroupIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import { Modal } from "@/components/ui/Modal";
+import { Input } from "@/components/ui/Input";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { Teacher, Practitioner, AttendanceStaff } from "@/types/database";
 
@@ -29,6 +31,8 @@ export default function StaffAttendancePage() {
   const [editItem, setEditItem] = useState<StaffItem | null>(null);
   const [editNote, setEditNote] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [correctionItem, setCorrectionItem] = useState<StaffItem | null>(null);
+  const [correctionReason, setCorrectionReason] = useState("");
 
   useEffect(() => { loadData(); const i = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(i); }, []);
 
@@ -116,6 +120,23 @@ export default function StaffAttendancePage() {
     setSavingEdit(false);
   }
 
+  async function requestCorrection() {
+    if (!correctionItem?.attendance || !correctionReason.trim() || !user) return;
+    try {
+      await createCorrectionRequest(
+        correctionItem.attendance.id,
+        correctionItem.staff.id,
+        correctionItem.type,
+        `${correctionItem.staff.first_name} ${correctionItem.staff.last_name}`,
+        date,
+        correctionReason.trim()
+      );
+      toast.success("Solicitud enviada al administrador");
+      setCorrectionItem(null);
+      setCorrectionReason("");
+    } catch { toast.error("Error al enviar solicitud"); }
+  }
+
   const totalPresent = items.filter((i) => i.attendance?.check_in && i.attendance?.status !== "absent").length;
   const totalAbsent = items.filter((i) => i.attendance?.status === "absent" || (i.attendance && !i.attendance.check_in && i.attendance.status === "absent")).length;
   const isAfterAutoMark = now.getHours() >= 16 && now.getMinutes() >= 30;
@@ -152,7 +173,12 @@ export default function StaffAttendancePage() {
                 {item.attendance ? (
                   <>
                     {item.attendance.status === "absent" || (!item.attendance.check_in && item.attendance.status === "absent") ? (
-                      <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white shadow-md text-sm font-bold"><XCircleIcon className="w-4 h-4" />No asistio</div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 text-white shadow-md text-sm font-bold"><XCircleIcon className="w-4 h-4" />No asistio</div>
+                        <button onClick={() => { setCorrectionItem(item); setCorrectionReason(""); }} className="flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 transition-all active:scale-95" title="Solicitar correccion">
+                          <ArrowPathIcon className="w-4 h-4" />
+                        </button>
+                      </div>
                     ) : (
                       <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/20"><CheckCircleIcon className="w-4 h-4 text-emerald-500" /><span className="text-sm font-bold text-emerald-600 dark:text-emerald-400">Presente</span><span className="text-xs text-gray-400">{item.attendance.check_in ? formatTime(item.attendance.check_in) : ""}</span></div>
                     )}
@@ -167,8 +193,22 @@ export default function StaffAttendancePage() {
                     <button onClick={() => startSignature(item)} className="flex items-center gap-2 px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"><PencilIcon className="w-4 h-4" />Firmar</button>
                     <button onClick={() => markAbsent(item)} className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 font-semibold rounded-xl active:scale-95 transition-all"><XCircleIcon className="w-4 h-4" />No asistio</button>
                   </>
-                )}
-              </div>
+)}
+
+      <Modal open={!!correctionItem} onClose={() => setCorrectionItem(null)} title="Solicitar Correccion" size="md">
+        {correctionItem && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+              <p className="font-bold text-gray-900 dark:text-white">{correctionItem.staff.first_name} {correctionItem.staff.last_name}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">{correctionItem.type === "teacher" ? "Profesor" : "Practicante"} · Marcado como No asistio</p>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300">La solicitud sera revisada por el administrador. Si se aprueba, se habilitara la firma.</p>
+            <div><label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Motivo de la solicitud *</label><textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} placeholder="Ej: Marque No asistio por error, el personal si asistio..." rows={3} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-none" /></div>
+            <div className="flex justify-end gap-3 pt-2"><button type="button" onClick={() => setCorrectionItem(null)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-colors">Cancelar</button><button onClick={requestCorrection} disabled={!correctionReason.trim()} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md disabled:opacity-50">Enviar Solicitud</button></div>
+          </div>
+        )}
+      </Modal>
+    </div>
             </div>
           </div>
         ))}

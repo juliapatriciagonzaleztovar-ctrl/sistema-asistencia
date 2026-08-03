@@ -14,6 +14,7 @@ import {
   Cog6ToothIcon,
   ArrowLeftOnRectangleIcon,
   XMarkIcon,
+  ArrowPathIcon,
 } from "@heroicons/react/24/outline";
 
 interface SidebarProps {
@@ -36,6 +37,7 @@ const adminOnlyNav = [
 ];
 
 const adminNav = [
+  { name: "Solicitudes", href: "/corrections", icon: ArrowPathIcon },
   { name: "Auditoria", href: "/audit", icon: DocumentTextIcon },
   { name: "Usuarios", href: "/users", icon: ShieldCheckIcon },
   { name: "Configuracion", href: "/settings", icon: Cog6ToothIcon },

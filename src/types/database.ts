@@ -127,3 +127,20 @@ export interface DashboardStats {
   monthlyAttendance: Array<{ month: string; present: number; absent: number }>;
   yearlyStats: Array<{ year: string; present: number; absent: number }>;
 }
+
+export interface CorrectionRequest {
+  id: string;
+  attendance_id: string;
+  staff_id: string;
+  staff_type: "teacher" | "practitioner";
+  staff_name: string;
+  attendance_date: string;
+  requested_by: string;
+  requested_by_email: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  resolved_by: string | null;
+  resolved_by_email: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
