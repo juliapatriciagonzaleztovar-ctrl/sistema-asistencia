@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { toast } from "react-hot-toast";
@@ -30,7 +30,7 @@ export default function GroupsPage() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const snap = await getDocs(query(collection(db, "groups"), orderBy("name")));
+    const snap = await getDocs(query(collection(getFirebaseDb(), "groups"), orderBy("name")));
     setGroups(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Group)));
     setLoading(false);
   }
@@ -51,11 +51,11 @@ export default function GroupsPage() {
     e.preventDefault();
     try {
       if (editing) {
-        await updateDoc(doc(db, "groups", editing.id), form);
+        await updateDoc(doc(getFirebaseDb(), "groups", editing.id), form);
         await logAction("update", "groups", editing.id, form);
         toast.success("Grupo actualizado");
       } else {
-        await addDoc(collection(db, "groups"), { ...form, created_at: new Date().toISOString() });
+        await addDoc(collection(getFirebaseDb(), "groups"), { ...form, created_at: new Date().toISOString() });
         await logAction("create", "groups", null, form);
         toast.success("Grupo creado");
       }
@@ -68,7 +68,7 @@ export default function GroupsPage() {
 
   async function handleDelete(id: string) {
     try {
-      await deleteDoc(doc(db, "groups", id));
+      await deleteDoc(doc(getFirebaseDb(), "groups", id));
       await logAction("delete", "groups", id, null);
       toast.success("Grupo eliminado");
       setDeleteConfirm(null);

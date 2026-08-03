@@ -3,9 +3,9 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { collection, query, where, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { UserGroupIcon, AcademicCapIcon, BriefcaseIcon, CheckCircleIcon, XCircleIcon, ArrowTrendingUpIcon } from "@heroicons/react/24/outline";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from "recharts";
+import { DynamicBarChart } from "@/components/charts/DynamicCharts";
 
 interface Stats { totalChildren: number; totalTeachers: number; totalPractitioners: number; monthPresent: number; monthAbsent: number; lastAttendance: string; }
 interface MonthlyData { month: string; presentes: number; ausentes: number; }
@@ -37,24 +37,29 @@ export default function DashboardPage() {
   }, [user, authLoading]);
 
   async function loadDashboard() {
-    const { start, end } = getMonthRange();
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    const start = `${sixMonthsAgo.getFullYear()}-${String(sixMonthsAgo.getMonth() + 1).padStart(2, "0")}-01`;
+    const { end } = getMonthRange();
+
     const [childrenSnap, teachersSnap, practitionersSnap, attendanceSnap, staffAttendanceSnap] = await Promise.all([
-      getDocs(collection(db, "children")),
-      getDocs(collection(db, "teachers")),
-      getDocs(collection(db, "practitioners")),
-      getDocs(query(collection(db, "attendance_children"), where("attendance_date", ">=", start), where("attendance_date", "<", end))),
-      getDocs(query(collection(db, "attendance_staff"), where("attendance_date", ">=", start), where("attendance_date", "<", end))),
+      getDocs(collection(getFirebaseDb(), "children")),
+      getDocs(collection(getFirebaseDb(), "teachers")),
+      getDocs(collection(getFirebaseDb(), "practitioners")),
+      getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", ">=", start), where("attendance_date", "<", end))),
+      getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", ">=", start), where("attendance_date", "<", end))),
     ]);
 
-    const childPresent = attendanceSnap.docs.filter((d) => d.data().status === "present").length;
-    const childAbsent = attendanceSnap.docs.filter((d) => d.data().status === "absent").length;
-    const staffPresent = staffAttendanceSnap.docs.filter((d) => d.data().check_in && d.data().status !== "absent").length;
-    const staffAbsent = staffAttendanceSnap.docs.filter((d) => d.data().status === "absent" && !d.data().check_in).length;
+    const allChildren = attendanceSnap.docs.map((d) => d.data() as { attendance_date: string; status: string });
+    const allStaff = staffAttendanceSnap.docs.map((d) => d.data() as { attendance_date: string; status: string; check_in: string | null });
 
-    const allDates = [
-      ...attendanceSnap.docs.map((d) => d.data().attendance_date as string),
-      ...staffAttendanceSnap.docs.map((d) => d.data().attendance_date as string),
-    ].sort().reverse();
+    const thisMonthStart = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+    const childPresent = allChildren.filter((d) => d.attendance_date >= thisMonthStart && d.status === "present").length;
+    const childAbsent = allChildren.filter((d) => d.attendance_date >= thisMonthStart && d.status === "absent").length;
+    const staffPresent = allStaff.filter((d) => d.attendance_date >= thisMonthStart && d.check_in && d.status !== "absent").length;
+    const staffAbsent = allStaff.filter((d) => d.attendance_date >= thisMonthStart && d.status === "absent" && !d.check_in).length;
+
+    const allDates = [...allChildren.map((d) => d.attendance_date), ...allStaff.map((d) => d.attendance_date)].sort().reverse();
     const lastAtt = allDates.length > 0 ? allDates[0] : "";
 
     setStats({
@@ -67,18 +72,16 @@ export default function DashboardPage() {
     });
 
     const monthlyData: MonthlyData[] = [];
-    const now = new Date();
     for (let i = 5; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const year = d.getFullYear(); const month = d.getMonth() + 1;
       const sDate = `${year}-${String(month).padStart(2, "0")}-01`;
       const endMonth = month === 12 ? 1 : month + 1; const endYear = month === 12 ? year + 1 : year;
       const eDate = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
-      const qMonth = query(collection(db, "attendance_children"), where("attendance_date", ">=", sDate), where("attendance_date", "<", eDate));
-      const qStaff = query(collection(db, "attendance_staff"), where("attendance_date", ">=", sDate), where("attendance_date", "<", eDate));
-      const [dataSnap, staffSnap] = await Promise.all([getDocs(qMonth), getDocs(qStaff)]);
-      const present = dataSnap.docs.filter((a) => a.data().status === "present").length + staffSnap.docs.filter((a) => a.data().check_in && a.data().status !== "absent").length;
-      const absent = dataSnap.docs.filter((a) => a.data().status === "absent").length + staffSnap.docs.filter((a) => a.data().status === "absent" && !a.data().check_in).length;
+      const childMonth = allChildren.filter((a) => a.attendance_date >= sDate && a.attendance_date < eDate);
+      const staffMonth = allStaff.filter((a) => a.attendance_date >= sDate && a.attendance_date < eDate);
+      const present = childMonth.filter((a) => a.status === "present").length + staffMonth.filter((a) => a.check_in && a.status !== "absent").length;
+      const absent = childMonth.filter((a) => a.status === "absent").length + staffMonth.filter((a) => a.status === "absent" && !a.check_in).length;
       monthlyData.push({ month: getMonthName(d.getMonth()), presentes: present, ausentes: absent });
     }
     setMonthly(monthlyData);
@@ -148,17 +151,7 @@ export default function DashboardPage() {
       <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm animate-fade-in-up">
         <h3 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Asistencia Mensual (Ultimos 6 meses)</h3>
         <div className="h-72">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={monthly} barGap={6}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12 }} axisLine={false} tickLine={false} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="presentes" name="Presentes" fill="#10b981" radius={[6, 6, 0, 0]} />
-              <Bar dataKey="ausentes" name="Ausentes" fill="#ef4444" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <DynamicBarChart data={monthly} />
         </div>
       </div>
     </div>

@@ -1,20 +1,30 @@
-import * as XLSX from "xlsx";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-
-export function exportToExcel(data: Record<string, unknown>[], filename: string) {
+export async function exportToExcel(data: Record<string, unknown>[], filename: string) {
+  const XLSX = await getXlsx();
   const worksheet = XLSX.utils.json_to_sheet(data);
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, "Datos");
   XLSX.writeFile(workbook, `${filename}.xlsx`);
 }
 
-export function exportToPDF(
+async function getPdfLibs(): Promise<{ jsPDF: typeof import("jspdf").default; autoTable: typeof import("jspdf-autotable").default }> {
+  const [jsModule, atModule] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable"),
+  ]);
+  return { jsPDF: jsModule.default, autoTable: atModule.default };
+}
+
+async function getXlsx() {
+  return import("xlsx");
+}
+
+export async function exportToPDF(
   title: string,
   headers: string[],
   data: string[][],
   filename: string
 ) {
+  const { jsPDF, autoTable } = await getPdfLibs();
   const doc = new jsPDF();
 
   doc.setFontSize(18);
@@ -38,7 +48,8 @@ export function exportToPDF(
   doc.save(`${filename}.pdf`);
 }
 
-export function exportToCsv(data: Record<string, unknown>[], filename: string) {
+export async function exportToCsv(data: Record<string, unknown>[], filename: string) {
+  const XLSX = await getXlsx();
   const worksheet = XLSX.utils.json_to_sheet(data);
   const csv = XLSX.utils.sheet_to_csv(worksheet);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
@@ -58,13 +69,14 @@ export interface PDFDetailRow {
   signatureDataUrl?: string | null;
 }
 
-export function exportToPDFDetail(
+export async function exportToPDFDetail(
   title: string,
   headers: string[],
   rows: PDFDetailRow[],
   filename: string,
   includeSignature: boolean
 ) {
+  const { jsPDF, autoTable } = await getPdfLibs();
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
   doc.setFontSize(16);

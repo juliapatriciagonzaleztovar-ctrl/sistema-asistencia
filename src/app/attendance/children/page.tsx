@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
 import { registerBulkChildAttendance, autoMarkAbsentChildren, updateChildAttendance } from "@/lib/attendance";
@@ -42,9 +42,9 @@ export default function ChildrenAttendancePage() {
       if (autoMarked > 0) toast(`Se marcaron ${autoMarked} ninos como ausentes (pasado las 6:00pm)`, { icon: "ℹ️" });
     }
     const [childrenData, groupsData, attendanceData] = await Promise.all([
-      getDocs(query(collection(db, "children"), where("status", "==", "active"))),
-      getDocs(collection(db, "groups")),
-      getDocs(query(collection(db, "attendance_children"), where("attendance_date", "==", today))),
+      getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
+      getDocs(collection(getFirebaseDb(), "groups")),
+      getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", today))),
     ]);
     const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
     setItems(childrenData.docs.map((d) => {

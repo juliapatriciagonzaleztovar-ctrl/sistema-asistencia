@@ -2,17 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { exportToExcel, exportToPDF, exportToPDFDetail, type PDFDetailRow } from "@/lib/export";
 import { getTodayDate } from "@/lib/utils";
 import { DocumentArrowDownIcon, ChartBarIcon, UserGroupIcon, AcademicCapIcon, CalendarDaysIcon, TableCellsIcon } from "@heroicons/react/24/outline";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from "recharts";
+import { DynamicBarChart, DynamicPieChart } from "@/components/charts/DynamicCharts";
 import type { Child, Group, AttendanceChild, Teacher, Practitioner, AttendanceStaff } from "@/types/database";
 
 interface ReportRow { childName: string; groupName: string; totalPresent: number; totalAbsent: number; percentage: number; }
 interface StaffReportRow { staffName: string; type: string; totalPresent: number; totalAbsent: number; percentage: number; }
 interface SpecificRow { id: string; name: string; groupOrType: string; date: string; status: string; statusLabel: string; signatureUrl: string | null; }
-const COLORS = ["#10b981", "#ef4444"];
 
 export default function ReportsPage() {
   const [reportData, setReportData] = useState<ReportRow[]>([]);
@@ -49,12 +48,12 @@ export default function ReportsPage() {
     else { startDate = `${now.getFullYear()}-01-01`; endDate = getTodayDate(); }
 
     const [childrenSnap, groupsSnap, attendanceSnap, teachersSnap, practitionersSnap, staffAttendanceSnap] = await Promise.all([
-      getDocs(query(collection(db, "children"), where("status", "==", "active"))),
-      getDocs(collection(db, "groups")),
-      getDocs(query(collection(db, "attendance_children"), where("attendance_date", ">=", startDate), where("attendance_date", "<=", endDate))),
-      getDocs(query(collection(db, "teachers"), where("status", "==", "active"))),
-      getDocs(query(collection(db, "practitioners"), where("status", "==", "active"))),
-      getDocs(query(collection(db, "attendance_staff"), where("attendance_date", ">=", startDate), where("attendance_date", "<=", endDate))),
+      getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
+      getDocs(collection(getFirebaseDb(), "groups")),
+      getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", ">=", startDate), where("attendance_date", "<=", endDate))),
+      getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
+      getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
+      getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", ">=", startDate), where("attendance_date", "<=", endDate))),
     ]);
 
     const groupsList = groupsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Group));
@@ -104,12 +103,12 @@ export default function ReportsPage() {
   async function loadSpecificDate() {
     setLoading(true);
     const [childrenSnap, groupsSnap, attChildSnap, teachersSnap, practitionersSnap, attStaffSnap] = await Promise.all([
-      getDocs(query(collection(db, "children"), where("status", "==", "active"))),
-      getDocs(collection(db, "groups")),
-      getDocs(query(collection(db, "attendance_children"), where("attendance_date", "==", selectedDate))),
-      getDocs(query(collection(db, "teachers"), where("status", "==", "active"))),
-      getDocs(query(collection(db, "practitioners"), where("status", "==", "active"))),
-      getDocs(query(collection(db, "attendance_staff"), where("attendance_date", "==", selectedDate))),
+      getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
+      getDocs(collection(getFirebaseDb(), "groups")),
+      getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", selectedDate))),
+      getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
+      getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
+      getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", selectedDate))),
     ]);
 
     const groupsList = groupsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Group));
@@ -217,7 +216,6 @@ export default function ReportsPage() {
   const staffTotalAbsent = staffReportData.reduce((acc, r) => acc + r.totalAbsent, 0);
   const currentPresent = reportTab === "children" ? totalPresent : staffTotalPresent;
   const currentAbsent = reportTab === "children" ? totalAbsent : staffTotalAbsent;
-  const pieData = [{ name: "Presentes", value: currentPresent || 0 }, { name: "Ausentes", value: currentAbsent || 0 }];
 
   const specificPresent = specificData.filter((r) => r.status === "present").length;
   const specificAbsent = specificData.filter((r) => r.status === "absent").length;
@@ -282,12 +280,12 @@ export default function ReportsPage() {
           <div className="grid gap-4 lg:grid-cols-2">
             <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
               <h3 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Tendencia Mensual</h3>
-              <div className="h-64"><ResponsiveContainer width="100%" height="100%"><BarChart data={monthlyData}><CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" /><XAxis dataKey="month" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} /><YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} /><Tooltip contentStyle={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: "12px", boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)" }} /><Legend /><Bar dataKey="presentes" name="Presentes" fill="#10b981" radius={[6, 6, 0, 0]} /><Bar dataKey="ausentes" name="Ausentes" fill="#ef4444" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div>
+              <div className="h-64"><DynamicBarChart data={monthlyData} /></div>
             </div>
             <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
               <h3 className="mb-4 text-base font-bold text-gray-900 dark:text-white">Distribucion</h3>
               <div className="h-64 flex items-center justify-center">
-                {currentPresent > 0 || currentAbsent > 0 ? (<ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">{pieData.map((_, i) => <Cell key={i} fill={COLORS[i]} />)}</Pie><Tooltip /><Legend /></PieChart></ResponsiveContainer>) : <p className="text-gray-500 dark:text-gray-400">Sin datos para mostrar</p>}
+                <DynamicPieChart present={currentPresent} absent={currentAbsent} />
               </div>
             </div>
           </div>

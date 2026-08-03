@@ -3,7 +3,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { doc, getDoc, setDoc, collection, getDocs } from "firebase/firestore";
-import { auth, db } from "./firebase";
+import { getFirebaseAuth, getFirebaseDb } from "./firebase";
 import type { Profile } from "@/types/database";
 
 interface AuthCtxType {
@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (firebaseUser) => {
       setUser(firebaseUser);
       setLoading(false);
       if (firebaseUser) {
@@ -35,16 +35,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function loadProfile(uid: string) {
     try {
-      const docRef = doc(db, "profiles", uid);
+      const docRef = doc(getFirebaseDb(), "profiles", uid);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         setProfile({ id: docSnap.id, ...docSnap.data() } as Profile);
       } else {
-        const profilesSnap = await getDocs(collection(db, "profiles"));
+        const profilesSnap = await getDocs(collection(getFirebaseDb(), "profiles"));
         if (profilesSnap.empty) {
           const newProfile = {
-            email: auth.currentUser?.email || "",
-            display_name: auth.currentUser?.email?.split("@")[0] || "Usuario",
+            email: getFirebaseAuth().currentUser?.email || "",
+            display_name: getFirebaseAuth().currentUser?.email?.split("@")[0] || "Usuario",
             role: "super_admin" as const,
             avatar_url: null,
             created_at: new Date().toISOString(),
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   function signOut() {
     import("firebase/auth").then(({ signOut: fbSignOut }) => {
-      fbSignOut(auth).then(() => { window.location.href = "/login"; });
+      fbSignOut(getFirebaseAuth()).then(() => { window.location.href = "/login"; });
     });
   }
 

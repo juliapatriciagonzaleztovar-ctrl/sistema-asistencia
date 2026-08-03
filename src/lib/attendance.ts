@@ -1,14 +1,14 @@
 import {
   collection, query, where, getDocs, addDoc, updateDoc, doc,
-  onSnapshot, orderBy, writeBatch, documentId
+  orderBy, writeBatch, documentId
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { getFirebaseDb } from "./firebase";
 import type { AttendanceChild, AttendanceStaff } from "@/types/database";
 import { getTodayDate } from "./utils";
 
 export async function getChildrenAttendance(date?: string) {
   const targetDate = date || getTodayDate();
-  const q = query(collection(db, "attendance_children"), where("attendance_date", "==", targetDate));
+  const q = query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", targetDate));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
 }
@@ -16,7 +16,7 @@ export async function getChildrenAttendance(date?: string) {
 export async function getChildrenAttendanceByChild(childId: string, date?: string) {
   const targetDate = date || getTodayDate();
   const q = query(
-    collection(db, "attendance_children"),
+    collection(getFirebaseDb(), "attendance_children"),
     where("child_id", "==", childId),
     where("attendance_date", "==", targetDate)
   );
@@ -31,17 +31,21 @@ export async function registerBulkChildAttendance(
   userId: string
 ) {
   const today = getTodayDate();
-  const batch = writeBatch(db);
+  const childIds = attendances.map((a) => a.childId);
 
+  const existingSnap = await getDocs(
+    query(
+      collection(getFirebaseDb(), "attendance_children"),
+      where("attendance_date", "==", today),
+      where("child_id", "in", childIds.slice(0, 30))
+    )
+  );
+  const existingIds = new Set(existingSnap.docs.map((d) => d.data().child_id as string));
+
+  const batch = writeBatch(getFirebaseDb());
   for (const a of attendances) {
-    const q = query(
-      collection(db, "attendance_children"),
-      where("child_id", "==", a.childId),
-      where("attendance_date", "==", today)
-    );
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
-      const docRef = doc(collection(db, "attendance_children"));
+    if (!existingIds.has(a.childId)) {
+      const docRef = doc(collection(getFirebaseDb(), "attendance_children"));
       batch.set(docRef, {
         child_id: a.childId,
         attendance_date: today,
@@ -58,7 +62,7 @@ export async function registerBulkChildAttendance(
 
 export async function getAllChildrenAttendance(date?: string) {
   const targetDate = date || getTodayDate();
-  const q = query(collection(db, "attendance_children"), where("attendance_date", "==", targetDate));
+  const q = query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", targetDate));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
 }
@@ -71,7 +75,7 @@ export async function registerStaffAttendance(
 ) {
   const today = getTodayDate();
   const q = query(
-    collection(db, "attendance_staff"),
+    collection(getFirebaseDb(), "attendance_staff"),
     where("staff_id", "==", staffId),
     where("staff_type", "==", staffType),
     where("attendance_date", "==", today)
@@ -87,7 +91,7 @@ export async function registerStaffAttendance(
     return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as AttendanceStaff;
   }
 
-  const docRef = await addDoc(collection(db, "attendance_staff"), {
+  const docRef = await addDoc(collection(getFirebaseDb(), "attendance_staff"), {
     staff_id: staffId,
     staff_type: staffType,
     attendance_date: today,
@@ -104,7 +108,7 @@ export async function registerStaffAttendance(
 export async function getStaffAttendanceByToday(staffId: string, staffType: "teacher" | "practitioner") {
   const today = getTodayDate();
   const q = query(
-    collection(db, "attendance_staff"),
+    collection(getFirebaseDb(), "attendance_staff"),
     where("staff_id", "==", staffId),
     where("staff_type", "==", staffType),
     where("attendance_date", "==", today)
@@ -116,7 +120,7 @@ export async function getStaffAttendanceByToday(staffId: string, staffType: "tea
 
 export async function getAllStaffAttendance(date?: string) {
   const targetDate = date || getTodayDate();
-  const q = query(collection(db, "attendance_staff"), where("attendance_date", "==", targetDate));
+  const q = query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", targetDate));
   const snapshot = await getDocs(q);
   const all = snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceStaff));
   return {
@@ -130,15 +134,15 @@ export async function autoMarkAbsentChildren(userId: string) {
   if (now.getHours() < 18) return 0;
   const today = getTodayDate();
   const [childrenSnap, attendanceSnap] = await Promise.all([
-    getDocs(query(collection(db, "children"), where("status", "==", "active"))),
-    getDocs(query(collection(db, "attendance_children"), where("attendance_date", "==", today))),
+    getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
+    getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", today))),
   ]);
   const markedIds = new Set(attendanceSnap.docs.map((d) => d.data().child_id));
   const unmarked = childrenSnap.docs.filter((d) => !markedIds.has(d.id));
   if (unmarked.length === 0) return 0;
-  const batch = writeBatch(db);
+  const batch = writeBatch(getFirebaseDb());
   for (const childDoc of unmarked) {
-    const docRef = doc(collection(db, "attendance_children"));
+    const docRef = doc(collection(getFirebaseDb(), "attendance_children"));
     batch.set(docRef, {
       child_id: childDoc.id,
       attendance_date: today,
@@ -157,18 +161,18 @@ export async function autoMarkAbsentStaff(userId: string) {
   if (now.getHours() < 18) return 0;
   const today = getTodayDate();
   const [teachersSnap, practitionersSnap, attendanceSnap] = await Promise.all([
-    getDocs(query(collection(db, "teachers"), where("status", "==", "active"))),
-    getDocs(query(collection(db, "practitioners"), where("status", "==", "active"))),
-    getDocs(query(collection(db, "attendance_staff"), where("attendance_date", "==", today))),
+    getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
+    getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
+    getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", today))),
   ]);
   const markedIds = new Set(attendanceSnap.docs.map((d) => `${d.data().staff_type}-${d.data().staff_id}`));
   const unmarkedStaff: Array<{ id: string; type: "teacher" | "practitioner" }> = [];
   teachersSnap.docs.forEach((d) => { if (!markedIds.has(`teacher-${d.id}`)) unmarkedStaff.push({ id: d.id, type: "teacher" }); });
   practitionersSnap.docs.forEach((d) => { if (!markedIds.has(`practitioner-${d.id}`)) unmarkedStaff.push({ id: d.id, type: "practitioner" }); });
   if (unmarkedStaff.length === 0) return 0;
-  const batch = writeBatch(db);
+  const batch = writeBatch(getFirebaseDb());
   for (const s of unmarkedStaff) {
-    const docRef = doc(collection(db, "attendance_staff"));
+    const docRef = doc(collection(getFirebaseDb(), "attendance_staff"));
     batch.set(docRef, {
       staff_id: s.id,
       staff_type: s.type,
@@ -187,7 +191,7 @@ export async function autoMarkAbsentStaff(userId: string) {
 }
 
 export async function updateChildAttendance(attendanceId: string, newStatus: "present" | "absent", note: string, userId: string) {
-  const attRef = doc(db, "attendance_children", attendanceId);
+  const attRef = doc(getFirebaseDb(), "attendance_children", attendanceId);
   await updateDoc(attRef, {
     status: newStatus,
     modified_by: userId,
@@ -197,7 +201,7 @@ export async function updateChildAttendance(attendanceId: string, newStatus: "pr
 }
 
 export async function updateStaffAttendance(attendanceId: string, newCheckIn: string | null, note: string, userId: string) {
-  const attRef = doc(db, "attendance_staff", attendanceId);
+  const attRef = doc(getFirebaseDb(), "attendance_staff", attendanceId);
   await updateDoc(attRef, {
     check_in: newCheckIn || new Date().toISOString(),
     status: newCheckIn ? null : "absent",

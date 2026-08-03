@@ -3,7 +3,7 @@
 import React from "react";
 import { usePathname } from "next/navigation";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
-import { auth } from "@/lib/firebase";
+import { getFirebaseAuth } from "@/lib/firebase";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Toaster } from "react-hot-toast";
@@ -54,7 +54,7 @@ function AppShell({ children }: { children: React.ReactNode }) {
         <div className="text-center">
           <p className="text-lg font-bold text-gray-900 dark:text-white mb-2">Sin perfil asignado</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Tu usuario no tiene un perfil configurado. Contacta al administrador.</p>
-          <button onClick={() => { import("firebase/auth").then(({ signOut: fbSignOut }) => { fbSignOut(auth).then(() => { window.location.href = "/login"; }); }); }} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md">Cerrar sesion</button>
+          <button onClick={() => { import("firebase/auth").then(({ signOut: fbSignOut }) => { fbSignOut(getFirebaseAuth()).then(() => { window.location.href = "/login"; }); }); }} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md">Cerrar sesion</button>
         </div>
       </div>
     );

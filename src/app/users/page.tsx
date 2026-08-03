@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { collection, getDocs, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { sendPasswordResetEmail } from "firebase/auth";
-import { auth, db } from "@/lib/firebase";
+import { getFirebaseAuth, getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
@@ -26,7 +26,7 @@ export default function UsersPage() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const snap = await getDocs(collection(db, "profiles"));
+    const snap = await getDocs(collection(getFirebaseDb(), "profiles"));
     setUsers(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Profile)));
     setLoading(false);
   }
@@ -38,7 +38,7 @@ export default function UsersPage() {
     e.preventDefault();
     try {
       if (editing) {
-        await updateDoc(doc(db, "profiles", editing.id), { display_name: form.display_name, role: form.role });
+        await updateDoc(doc(getFirebaseDb(), "profiles", editing.id), { display_name: form.display_name, role: form.role });
         await logAction("update", "profiles", editing.id, { display_name: form.display_name, role: form.role });
         toast.success("Usuario actualizado");
       } else {
@@ -61,7 +61,7 @@ export default function UsersPage() {
 
   async function handleDelete(id: string) {
     try {
-      await deleteDoc(doc(db, "profiles", id));
+      await deleteDoc(doc(getFirebaseDb(), "profiles", id));
       await logAction("delete", "profiles", id, null);
       toast.success("Usuario eliminado");
       setDeleteConfirm(null);
@@ -71,7 +71,7 @@ export default function UsersPage() {
 
   async function handleResetPassword() {
     try {
-      await sendPasswordResetEmail(auth, resetEmail);
+      await sendPasswordResetEmail(getFirebaseAuth(), resetEmail);
       toast.success("Correo de restablecimiento enviado");
       setShowResetModal(false);
     } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Error al restablecer"); }

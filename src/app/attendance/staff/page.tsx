@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
 import { registerStaffAttendance, autoMarkAbsentStaff, updateStaffAttendance } from "@/lib/attendance";
@@ -38,9 +38,9 @@ export default function StaffAttendancePage() {
       if (autoMarked > 0) toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 6:00pm)`, { icon: "ℹ️" });
     }
     const [teachersData, practitionersData, attendanceData] = await Promise.all([
-      getDocs(query(collection(db, "teachers"), where("status", "==", "active"))),
-      getDocs(query(collection(db, "practitioners"), where("status", "==", "active"))),
-      getDocs(query(collection(db, "attendance_staff"), where("attendance_date", "==", today))),
+      getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
+      getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
+      getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", today))),
     ]);
     const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceStaff));
     setItems([

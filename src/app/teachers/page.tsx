@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { toast } from "react-hot-toast";
@@ -22,7 +22,7 @@ export default function TeachersPage() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const snap = await getDocs(query(collection(db, "teachers"), orderBy("first_name")));
+    const snap = await getDocs(query(collection(getFirebaseDb(), "teachers"), orderBy("first_name")));
     setTeachers(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Teacher)));
     setLoading(false);
   }
@@ -46,15 +46,15 @@ export default function TeachersPage() {
         toast.error("Nombres, Apellidos y Documento son obligatorios");
         return;
       }
-      const dupSnap = await getDocs(query(collection(db, "teachers"), where("document", "==", form.document.trim())));
+      const dupSnap = await getDocs(query(collection(getFirebaseDb(), "teachers"), where("document", "==", form.document.trim())));
       const dup = dupSnap.docs.find((d) => !editing || d.id !== editing.id);
       if (dup) { toast.error("Este documento ya esta registrado"); return; }
       if (editing) {
-        await updateDoc(doc(db, "teachers", editing.id), { ...form, document: form.document.trim() });
+        await updateDoc(doc(getFirebaseDb(), "teachers", editing.id), { ...form, document: form.document.trim() });
         await logAction("update", "teachers", editing.id, form);
         toast.success("Profesor actualizado");
       } else {
-        await addDoc(collection(db, "teachers"), { ...form, document: form.document.trim(), created_at: new Date().toISOString() });
+        await addDoc(collection(getFirebaseDb(), "teachers"), { ...form, document: form.document.trim(), created_at: new Date().toISOString() });
         await logAction("create", "teachers", null, form);
         toast.success("Profesor registrado");
       }
@@ -65,7 +65,7 @@ export default function TeachersPage() {
 
   async function handleDelete(id: string) {
     try {
-      await deleteDoc(doc(db, "teachers", id));
+      await deleteDoc(doc(getFirebaseDb(), "teachers", id));
       await logAction("delete", "teachers", id, null);
       toast.success("Profesor eliminado");
       setDeleteConfirm(null);

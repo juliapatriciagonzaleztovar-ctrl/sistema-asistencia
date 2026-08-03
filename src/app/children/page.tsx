@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { toast } from "react-hot-toast";
@@ -27,8 +27,8 @@ export default function ChildrenPage() {
 
   async function loadData() {
     const [childrenSnap, groupsSnap] = await Promise.all([
-      getDocs(query(collection(db, "children"), orderBy("first_name"))),
-      getDocs(query(collection(db, "groups"), orderBy("name"))),
+      getDocs(query(collection(getFirebaseDb(), "children"), orderBy("first_name"))),
+      getDocs(query(collection(getFirebaseDb(), "groups"), orderBy("name"))),
     ]);
     const groupsList = groupsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Group));
     setGroups(groupsList);
@@ -60,11 +60,11 @@ export default function ChildrenPage() {
     const payload = { ...form, age: form.age ? Number(form.age) : null, group_id: form.group_id || null };
     try {
       if (editingChild) {
-        await updateDoc(doc(db, "children", editingChild.id), payload);
+        await updateDoc(doc(getFirebaseDb(), "children", editingChild.id), payload);
         await logAction("update", "children", editingChild.id, payload);
         toast.success("Nino actualizado correctamente");
       } else {
-        await addDoc(collection(db, "children"), { ...payload, created_at: new Date().toISOString() });
+        await addDoc(collection(getFirebaseDb(), "children"), { ...payload, created_at: new Date().toISOString() });
         await logAction("create", "children", null, payload);
         toast.success("Nino registrado correctamente");
       }
@@ -77,7 +77,7 @@ export default function ChildrenPage() {
 
   async function handleDelete(id: string) {
     try {
-      await deleteDoc(doc(db, "children", id));
+      await deleteDoc(doc(getFirebaseDb(), "children", id));
       await logAction("delete", "children", id, null);
       toast.success("Nino eliminado correctamente");
       setDeleteConfirm(null);

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { toast } from "react-hot-toast";
@@ -22,7 +22,7 @@ export default function PractitionersPage() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const snap = await getDocs(query(collection(db, "practitioners"), orderBy("first_name")));
+    const snap = await getDocs(query(collection(getFirebaseDb(), "practitioners"), orderBy("first_name")));
     setPractitioners(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Practitioner)));
     setLoading(false);
   }
@@ -46,15 +46,15 @@ export default function PractitionersPage() {
         toast.error("Nombres, Apellidos y Documento son obligatorios");
         return;
       }
-      const dupSnap = await getDocs(query(collection(db, "practitioners"), where("document", "==", form.document.trim())));
+      const dupSnap = await getDocs(query(collection(getFirebaseDb(), "practitioners"), where("document", "==", form.document.trim())));
       const dup = dupSnap.docs.find((d) => !editing || d.id !== editing.id);
       if (dup) { toast.error("Este documento ya esta registrado"); return; }
       if (editing) {
-        await updateDoc(doc(db, "practitioners", editing.id), { ...form, document: form.document.trim() });
+        await updateDoc(doc(getFirebaseDb(), "practitioners", editing.id), { ...form, document: form.document.trim() });
         await logAction("update", "practitioners", editing.id, form);
         toast.success("Practicante actualizado");
       } else {
-        await addDoc(collection(db, "practitioners"), { ...form, document: form.document.trim(), created_at: new Date().toISOString() });
+        await addDoc(collection(getFirebaseDb(), "practitioners"), { ...form, document: form.document.trim(), created_at: new Date().toISOString() });
         await logAction("create", "practitioners", null, form);
         toast.success("Practicante registrado");
       }
@@ -65,7 +65,7 @@ export default function PractitionersPage() {
 
   async function handleDelete(id: string) {
     try {
-      await deleteDoc(doc(db, "practitioners", id));
+      await deleteDoc(doc(getFirebaseDb(), "practitioners", id));
       await logAction("delete", "practitioners", id, null);
       toast.success("Practicante eliminado");
       setDeleteConfirm(null);

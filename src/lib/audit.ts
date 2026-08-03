@@ -1,6 +1,5 @@
 import { collection, addDoc, query, orderBy, getDocs, limit } from "firebase/firestore";
-import { db } from "./firebase";
-import { auth } from "./firebase";
+import { getFirebaseDb, getFirebaseAuth } from "./firebase";
 import type { AuditLog } from "@/types/database";
 
 export async function logAction(
@@ -9,10 +8,10 @@ export async function logAction(
   entityId: string | null,
   details: Record<string, unknown> | null
 ) {
-  const user = auth.currentUser;
+  const user = getFirebaseAuth().currentUser;
   const userEmail = user?.email || "system";
 
-  await addDoc(collection(db, "audit_logs"), {
+  await addDoc(collection(getFirebaseDb(), "audit_logs"), {
     user_id: user?.uid || null,
     user_email: userEmail,
     action,
@@ -24,7 +23,7 @@ export async function logAction(
 }
 
 export async function getAuditLogs(): Promise<AuditLog[]> {
-  const q = query(collection(db, "audit_logs"), orderBy("created_at", "desc"), limit(100));
+  const q = query(collection(getFirebaseDb(), "audit_logs"), orderBy("created_at", "desc"), limit(100));
   const snapshot = await getDocs(q);
   return snapshot.docs.map((d) => ({ id: d.id, ...d.data() } as AuditLog));
 }

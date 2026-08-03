@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { getFirebaseDb } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
@@ -19,7 +19,7 @@ export default function SettingsPage() {
   useEffect(() => { loadSettings(); }, []);
 
   async function loadSettings() {
-    const snap = await getDocs(query(collection(db, "system_settings"), orderBy("setting_key")));
+    const snap = await getDocs(query(collection(getFirebaseDb(), "system_settings"), orderBy("setting_key")));
     const data = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Setting));
     setSettings(data);
     const formMap: Record<string, string> = {};
@@ -33,8 +33,8 @@ export default function SettingsPage() {
     try {
       for (const [key, value] of Object.entries(form)) {
         const existing = settings.find((s) => s.setting_key === key);
-        if (existing) { await updateDoc(doc(db, "system_settings", existing.id), { setting_value: value }); }
-        else { await addDoc(collection(db, "system_settings"), { setting_key: key, setting_value: value }); }
+        if (existing) { await updateDoc(doc(getFirebaseDb(), "system_settings", existing.id), { setting_value: value }); }
+        else { await addDoc(collection(getFirebaseDb(), "system_settings"), { setting_key: key, setting_value: value }); }
       }
       await logAction("update", "system_settings", null, form);
       toast.success("Configuracion guardada");
