@@ -8,7 +8,7 @@ import { getTodayDate, formatTime } from "@/lib/utils";
 import { registerSingleChildAttendance, autoMarkAbsentChildren, updateChildAttendance } from "@/lib/attendance";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
-import { CheckCircleIcon, XCircleIcon, ClockIcon, ClipboardDocumentCheckIcon, PencilIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, XCircleIcon, ClockIcon, ClipboardDocumentCheckIcon, PencilIcon, MagnifyingGlassIcon, ArrowUpIcon, ArrowDownIcon } from "@heroicons/react/24/outline";
 import { Modal } from "@/components/ui/Modal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import type { Child, Group, AttendanceChild } from "@/types/database";
@@ -28,6 +28,8 @@ export default function ChildrenAttendancePage() {
   const [editStatus, setEditStatus] = useState<"present" | "absent">("present");
   const [editNote, setEditNote] = useState("");
   const [savingEdit, setSavingEdit] = useState(false);
+  const [search, setSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   useEffect(() => {
     loadData();
@@ -95,11 +97,24 @@ export default function ChildrenAttendancePage() {
     setSavingEdit(false);
   }
 
-  const filtered = selectedGroup === "all" ? items : items.filter((i) => i.child.group_id === selectedGroup);
-  const totalPresent = filtered.filter((i) => i.existing?.status === "present").length;
-  const totalAbsent = filtered.filter((i) => i.existing?.status === "absent").length;
+  const filtered = items
+    .filter((i) => selectedGroup === "all" || i.child.group_id === selectedGroup)
+    .filter((i) => {
+      if (!search.trim()) return true;
+      const term = search.toLowerCase();
+      const fullName = `${i.child.first_name} ${i.child.last_name}`.toLowerCase();
+      return fullName.includes(term);
+    })
+    .sort((a, b) => {
+      const nameA = `${a.child.first_name} ${a.child.last_name}`.toLowerCase();
+      const nameB = `${b.child.first_name} ${b.child.last_name}`.toLowerCase();
+      return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
+
+  const totalPresent = items.filter((i) => i.existing?.status === "present").length;
+  const totalAbsent = items.filter((i) => i.existing?.status === "absent").length;
   const isAfterAutoMark = now.getHours() >= 17 && now.getMinutes() >= 50;
-  const unmarked = filtered.filter((i) => !i.existing).length;
+  const unmarked = items.filter((i) => !i.existing).length;
 
   if (loading) return <LoadingSpinner label="Cargando..." />;
 
@@ -126,6 +141,17 @@ export default function ChildrenAttendancePage() {
         {groups.map((g) => (
           <button key={g.id} onClick={() => setSelectedGroup(g.id)} className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${selectedGroup === g.id ? "gradient-primary text-white shadow-md" : "bg-white dark:bg-[#1a2438] text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 hover:border-primary"}`}>{g.name} ({items.filter((i) => i.child.group_id === g.id).length})</button>
         ))}
+      </div>
+
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+          <input type="text" placeholder="Buscar por nombre..." aria-label="Buscar ninos por nombre" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-4 py-3 pl-11 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
+        </div>
+        <button onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")} className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#0c1220] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all" aria-label={`Ordenar ${sortOrder === "asc" ? "Z a A" : "A a Z"}`}>
+          {sortOrder === "asc" ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />}
+          {sortOrder === "asc" ? "A - Z" : "Z - A"}
+        </button>
       </div>
 
       <div className="space-y-2">
@@ -170,7 +196,7 @@ export default function ChildrenAttendancePage() {
         ))}
       </div>
 
-      {filtered.length === 0 && <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-800"><p className="text-gray-400 font-medium">No hay ninos en este grupo</p></div>}
+      {filtered.length === 0 && <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-800"><p className="text-gray-400 font-medium">{search ? "No se encontraron resultados" : "No hay ninos en este grupo"}</p></div>}
 
       <Modal open={!!editItem} onClose={() => setEditItem(null)} title="Corregir Asistencia" size="md">
         {editItem && (

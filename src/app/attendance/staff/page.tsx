@@ -9,7 +9,7 @@ import { registerStaffAttendance, registerStaffAbsent, autoMarkAbsentStaff, upda
 import { createCorrectionRequest } from "@/lib/corrections";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
-import { PencilIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UserGroupIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, CheckCircleIcon, XCircleIcon, ClockIcon, UserGroupIcon, ArrowPathIcon, MagnifyingGlassIcon, ArrowUpIcon, ArrowDownIcon } from "@heroicons/react/24/outline";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
@@ -33,6 +33,8 @@ export default function StaffAttendancePage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [correctionItem, setCorrectionItem] = useState<StaffItem | null>(null);
   const [correctionReason, setCorrectionReason] = useState("");
+  const [search, setSearch] = useState("");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   useEffect(() => { loadData(); const i = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(i); }, []);
 
@@ -137,6 +139,20 @@ export default function StaffAttendancePage() {
     } catch { toast.error("Error al enviar solicitud"); }
   }
 
+  const filtered = items
+    .filter((i) => {
+      if (!search.trim()) return true;
+      const term = search.toLowerCase();
+      const fullName = `${i.staff.first_name} ${i.staff.last_name}`.toLowerCase();
+      const type = i.type === "teacher" ? "profesor" : "practicante";
+      return fullName.includes(term) || type.includes(term);
+    })
+    .sort((a, b) => {
+      const nameA = `${a.staff.first_name} ${a.staff.last_name}`.toLowerCase();
+      const nameB = `${b.staff.first_name} ${b.staff.last_name}`.toLowerCase();
+      return sortOrder === "asc" ? nameA.localeCompare(nameB) : nameB.localeCompare(nameA);
+    });
+
   const totalPresent = items.filter((i) => i.attendance?.check_in).length;
   const totalAbsent = items.filter((i) => i.attendance && !i.attendance.check_in).length;
   const isAfterAutoMark = now.getHours() >= 16 && now.getMinutes() >= 30;
@@ -161,8 +177,19 @@ export default function StaffAttendancePage() {
         <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-4 text-center border border-gray-100 dark:border-gray-800"><p className="text-3xl font-bold text-red-500">{totalAbsent}</p><p className="text-xs font-medium text-gray-400">Ausentes</p></div>
       </div>
 
+      <div className="flex flex-col sm:flex-row gap-3">
+        <div className="relative flex-1">
+          <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
+          <input type="text" placeholder="Buscar por nombre o cargo..." aria-label="Buscar personal por nombre" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-4 py-3 pl-11 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
+        </div>
+        <button onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")} className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#0c1220] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all" aria-label={`Ordenar ${sortOrder === "asc" ? "Z a A" : "A a Z"}`}>
+          {sortOrder === "asc" ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />}
+          {sortOrder === "asc" ? "A - Z" : "Z - A"}
+        </button>
+      </div>
+
       <div className="space-y-2">
-        {items.map((item) => (
+        {filtered.map((item) => (
           <div key={`${item.type}-${item.staff.id}`} className="bg-white dark:bg-[#1a2438] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm transition-all">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
@@ -193,7 +220,14 @@ export default function StaffAttendancePage() {
                     <button onClick={() => startSignature(item)} className="flex items-center gap-2 px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-95"><PencilIcon className="w-4 h-4" />Firmar</button>
                     <button onClick={() => markAbsent(item)} className="flex items-center gap-2 px-4 py-2.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 font-semibold rounded-xl active:scale-95 transition-all"><XCircleIcon className="w-4 h-4" />No asistio</button>
                   </>
-)}
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filtered.length === 0 && <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-800"><p className="text-gray-400 font-medium">{search ? "No se encontraron resultados" : "No hay personal registrado"}</p></div>}
 
       <Modal open={!!correctionItem} onClose={() => setCorrectionItem(null)} title="Solicitar Correccion" size="md">
         {correctionItem && (
@@ -208,11 +242,6 @@ export default function StaffAttendancePage() {
           </div>
         )}
       </Modal>
-    </div>
-            </div>
-          </div>
-        ))}
-      </div>
 
       {showSignature && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Firma digital">
