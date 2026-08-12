@@ -18,6 +18,7 @@ export interface Group {
 
 export interface Child {
   id: string;
+  child_id_code?: string;
   first_name: string;
   last_name: string;
   document: string | null;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { Modal } from "@/components/ui/Modal";
@@ -21,6 +21,15 @@ export default function ChildrenPage() {
   const [editingChild, setEditingChild] = useState<Child | null>(null);
   const [form, setForm] = useState({ first_name: "", last_name: "", document: "", age: "", group_id: "", shift: "manana", status: "active" as "active" | "inactive", observations: "" });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+
+  const nextChildCode = useMemo(() => {
+    if (children.length === 0) return "CT001";
+    const maxNum = children.reduce((max, c) => {
+      const match = c.child_id_code?.match(/^CT(\d+)$/);
+      return match ? Math.max(max, parseInt(match[1], 10)) : max;
+    }, 0);
+    return `CT${String(maxNum + 1).padStart(3, "0")}`;
+  }, [children]);
 
   useEffect(() => { loadData(); }, []);
 
@@ -67,9 +76,13 @@ export default function ChildrenPage() {
         await logAction("update", "children", editingChild.id, payload);
         toast.success("Nino actualizado");
       } else {
-        await addDoc(collection(getFirebaseDb(), "children"), { ...payload, created_at: new Date().toISOString() });
-        await logAction("create", "children", null, payload);
-        toast.success("Nino registrado");
+        await addDoc(collection(getFirebaseDb(), "children"), {
+          ...payload,
+          child_id_code: nextChildCode,
+          created_at: new Date().toISOString(),
+        });
+        await logAction("create", "children", null, { ...payload, child_id_code: nextChildCode });
+        toast.success(`Nino registrado con ID ${nextChildCode}`);
       }
       setShowModal(false);
       loadData();
@@ -86,7 +99,12 @@ export default function ChildrenPage() {
     } catch { toast.error("Error al eliminar"); }
   }
 
-  const filtered = children.filter((c) => `${c.first_name} ${c.last_name}`.toLowerCase().includes(search.toLowerCase()));
+  const filtered = children.filter((c) => {
+    const term = search.toLowerCase();
+    const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
+    const code = c.child_id_code?.toLowerCase() || "";
+    return fullName.includes(term) || code.includes(term);
+  });
 
   if (loading) return <LoadingSpinner label="Cargando ninos..." />;
 
@@ -102,7 +120,7 @@ export default function ChildrenPage() {
 
       <div className="relative">
         <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-        <input type="text" placeholder="Buscar por nombre..." aria-label="Buscar ninos por nombre" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-4 py-3 pl-11 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
+        <input type="text" placeholder="Buscar por nombre o ID (CT001...)..." aria-label="Buscar ninos" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-4 py-3 pl-11 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
       </div>
 
       {filtered.length > 0 ? (
@@ -112,7 +130,13 @@ export default function ChildrenPage() {
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-sm font-bold shadow-sm">{child.first_name.charAt(0)}{child.last_name.charAt(0)}</div>
-                  <div><h3 className="font-bold text-gray-900 dark:text-white text-[15px]">{child.first_name} {child.last_name}</h3><p className="text-[12px] text-gray-500 dark:text-gray-400">{child.age} anos</p></div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-gray-900 dark:text-white text-[15px]">{child.first_name} {child.last_name}</h3>
+                      {child.child_id_code && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-primary/10 text-primary">{child.child_id_code}</span>}
+                    </div>
+                    <p className="text-[12px] text-gray-500 dark:text-gray-400">{child.age} anos</p>
+                  </div>
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button onClick={() => openEdit(child)} aria-label="Editar nino" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"><PencilIcon className="w-4 h-4" /></button>
@@ -139,6 +163,12 @@ export default function ChildrenPage() {
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editingChild ? "Editar Nino" : "Registrar Nino"} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
+          {!editingChild && (
+            <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex items-center gap-3">
+              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">ID del Nino:</span>
+              <span className="px-3 py-1 rounded-lg bg-primary text-white text-sm font-bold">{nextChildCode}</span>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <Input label="Nombres" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required placeholder="Ej: Juan" />
             <Input label="Apellidos" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} required placeholder="Ej: Perez" />

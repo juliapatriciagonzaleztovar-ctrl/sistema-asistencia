@@ -103,7 +103,8 @@ export default function ChildrenAttendancePage() {
       if (!search.trim()) return true;
       const term = search.toLowerCase();
       const fullName = `${i.child.first_name} ${i.child.last_name}`.toLowerCase();
-      return fullName.includes(term);
+      const code = i.child.child_id_code?.toLowerCase() || "";
+      return fullName.includes(term) || code.includes(term);
     })
     .sort((a, b) => {
       const nameA = `${a.child.first_name} ${a.child.last_name}`.toLowerCase();
@@ -146,7 +147,7 @@ export default function ChildrenAttendancePage() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" />
-          <input type="text" placeholder="Buscar por nombre..." aria-label="Buscar ninos por nombre" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-4 py-3 pl-11 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
+          <input type="text" placeholder="Buscar por nombre o ID (CT001...)..." aria-label="Buscar ninos" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-4 py-3 pl-11 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" />
         </div>
         <button onClick={() => setSortOrder(sortOrder === "asc" ? "desc" : "asc")} className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#0c1220] text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all" aria-label={`Ordenar ${sortOrder === "asc" ? "Z a A" : "A a Z"}`}>
           {sortOrder === "asc" ? <ArrowUpIcon className="w-4 h-4" /> : <ArrowDownIcon className="w-4 h-4" />}
@@ -161,7 +162,10 @@ export default function ChildrenAttendancePage() {
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-sm font-bold">{item.child.first_name.charAt(0)}{item.child.last_name.charAt(0)}</div>
                 <div>
-                  <h3 className="font-bold text-gray-900 dark:text-white text-sm">{item.child.first_name} {item.child.last_name}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900 dark:text-white text-sm">{item.child.first_name} {item.child.last_name}</h3>
+                    {item.child.child_id_code && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">{item.child.child_id_code}</span>}
+                  </div>
                   <p className="text-[11px] text-gray-400">{item.child.shift}{item.child.group_id ? ` \u00B7 ${groups.find((g) => g.id === item.child.group_id)?.name || ""}` : ""}</p>
                 </div>
               </div>
