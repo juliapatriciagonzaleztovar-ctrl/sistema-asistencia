@@ -103,6 +103,16 @@ service cloud.firestore {
     }
 
     // ============================================
+    // correction_requests_children - Operador crea, admin resuelve, operador lee las suyas
+    // ============================================
+    match /correction_requests_children/{reqId} {
+      allow read: if isAuth() && (isAdmin() || resource.data.requested_by == request.auth.uid);
+      allow create: if isAuth();
+      allow update: if isAuth() && isAdmin();
+      allow delete: if false;
+    }
+
+    // ============================================
     // system_settings - Solo admin puede escribir
     // ============================================
     match /system_settings/{settingId} {

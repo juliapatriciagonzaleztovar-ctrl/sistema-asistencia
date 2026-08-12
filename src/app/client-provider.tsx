@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AuthProvider, useAuth } from "@/lib/auth-context";
 import { getFirebaseAuth } from "@/lib/firebase";
 import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { Sidebar } from "@/components/layout/Sidebar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { Toaster } from "react-hot-toast";
 
 export function ClientProvider({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,7 @@ export function ClientProvider({ children }: { children: React.ReactNode }) {
 function AppShell({ children }: { children: React.ReactNode }) {
   const { user, profile, loading } = useAuth();
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
 
   const adminRoutes = ["/audit", "/users", "/settings", "/groups", "/corrections"];
@@ -84,7 +86,10 @@ function AppShell({ children }: { children: React.ReactNode }) {
               </svg>
             </button>
             <h1 className="hidden sm:block text-base font-bold text-gray-900 dark:text-white tracking-tight">Sistema de Asistencia</h1>
-            <ThemeToggle />
+            <div className="flex items-center gap-2">
+              <NotificationBell onNavigate={(path) => router.push(path)} />
+              <ThemeToggle />
+            </div>
           </div>
         </header>
         <div className="p-4 lg:p-8 max-w-[1400px]">{children}</div>

@@ -142,6 +142,26 @@ export interface CorrectionRequest {
   status: "pending" | "approved" | "rejected";
   resolved_by: string | null;
   resolved_by_email: string | null;
+  admin_note: string | null;
+  created_at: string;
+  resolved_at: string | null;
+}
+
+export interface CorrectionRequestChild {
+  id: string;
+  attendance_id: string;
+  child_id: string;
+  child_name: string;
+  child_id_code: string;
+  old_status: "present" | "absent";
+  attendance_date: string;
+  requested_by: string;
+  requested_by_email: string;
+  reason: string;
+  status: "pending" | "approved" | "rejected";
+  resolved_by: string | null;
+  resolved_by_email: string | null;
+  admin_note: string | null;
   created_at: string;
   resolved_at: string | null;
 }

@@ -1,17 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
 import { getTodayDate, formatTime } from "@/lib/utils";
 import { registerSingleChildAttendance, autoMarkAbsentChildren, updateChildAttendance } from "@/lib/attendance";
+import { createChildCorrectionRequest, getMyChildCorrections } from "@/lib/corrections";
 import { logAction } from "@/lib/audit";
 import { toast } from "react-hot-toast";
-import { CheckCircleIcon, XCircleIcon, ClockIcon, ClipboardDocumentCheckIcon, PencilIcon, MagnifyingGlassIcon, ArrowUpIcon, ArrowDownIcon } from "@heroicons/react/24/outline";
+import { CheckCircleIcon, XCircleIcon, ClockIcon, ClipboardDocumentCheckIcon, PencilIcon, MagnifyingGlassIcon, ArrowUpIcon, ArrowDownIcon, ExclamationTriangleIcon } from "@heroicons/react/24/outline";
 import { Modal } from "@/components/ui/Modal";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
-import type { Child, Group, AttendanceChild } from "@/types/database";
+import type { Child, Group, AttendanceChild, CorrectionRequestChild } from "@/types/database";
 
 interface ChildItem { child: Child; existing: AttendanceChild | null; selectedStatus: "present" | "absent" | null; }
 
@@ -30,12 +31,25 @@ export default function ChildrenAttendancePage() {
   const [savingEdit, setSavingEdit] = useState(false);
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [correctionItem, setCorrectionItem] = useState<ChildItem | null>(null);
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [highlightChildId, setHighlightChildId] = useState<string | null>(null);
+  const [myCorrections, setMyCorrections] = useState<CorrectionRequestChild[]>([]);
+  const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     loadData();
     const interval = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (user && !isAdmin) {
+      loadMyCorrections();
+      const interval = setInterval(loadMyCorrections, 15000);
+      return () => clearInterval(interval);
+    }
+  }, [user, isAdmin]);
 
   async function loadData() {
     const today = getTodayDate();
@@ -57,6 +71,49 @@ export default function ChildrenAttendancePage() {
     setGroups(groupsData.docs.map((d) => ({ id: d.id, ...d.data() } as Group)));
     setLoading(false);
   }
+
+  async function loadMyCorrections() {
+    if (!user) return;
+    try {
+      const data = await getMyChildCorrections(user.uid);
+      const prevPending = myCorrections.filter((c) => c.status === "pending").length;
+      const newPending = data.filter((c) => c.status === "pending").length;
+      const resolved = data.filter((c) => c.status === "approved" || c.status === "rejected");
+      const newResolved = resolved.filter((c) => {
+        const resolvedTime = new Date(c.resolved_at || c.created_at).getTime();
+        const fiveMinAgo = Date.now() - 5 * 60 * 1000;
+        return resolvedTime > fiveMinAgo;
+      });
+
+      if (prevPending > 0 && newPending < prevPending) {
+        const approved = data.find((c) => c.status === "approved" && c.child_id);
+        if (approved) {
+          toast.success(`Solicitud aprobada para ${approved.child_name}. Puede volver a marcar.`);
+          highlightChild(approved.child_id);
+          loadData();
+        }
+        const rejected = data.find((c) => c.status === "rejected");
+        if (rejected) {
+          toast.error(`Solicitud rechazada: ${rejected.admin_note || "Sin motivo"}`);
+        }
+      }
+
+      setMyCorrections(data);
+    } catch (e) {
+      console.error("Error loading corrections:", e);
+    }
+  }
+
+  const highlightChild = useCallback((childId: string) => {
+    setHighlightChildId(childId);
+    setTimeout(() => {
+      const el = document.getElementById(`child-${childId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 300);
+    setTimeout(() => setHighlightChildId(null), 5000);
+  }, []);
 
   async function markAttendance(child: Child, status: "present" | "absent") {
     if (!user) return;
@@ -95,6 +152,27 @@ export default function ChildrenAttendancePage() {
       loadData();
     } catch { toast.error("Error al corregir asistencia"); }
     setSavingEdit(false);
+  }
+
+  async function submitCorrection() {
+    if (!correctionItem?.existing || !correctionReason.trim() || !user) return;
+    try {
+      const childName = `${correctionItem.child.first_name} ${correctionItem.child.last_name}`;
+      const oldStatus = correctionItem.existing.status as "present" | "absent";
+      await createChildCorrectionRequest(
+        correctionItem.existing.id,
+        correctionItem.child.id,
+        childName,
+        correctionItem.child.child_id_code || "S/I",
+        oldStatus,
+        date,
+        correctionReason.trim()
+      );
+      toast.success("Solicitud enviada al administrador");
+      setCorrectionItem(null);
+      setCorrectionReason("");
+      loadMyCorrections();
+    } catch { toast.error("Error al enviar solicitud"); }
   }
 
   const filtered = items
@@ -155,9 +233,17 @@ export default function ChildrenAttendancePage() {
         </button>
       </div>
 
-      <div className="space-y-2">
+      <div ref={listRef} className="space-y-2">
         {filtered.map((item) => (
-          <div key={item.child.id} className={`bg-white dark:bg-[#1a2438] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm transition-all ${item.existing ? "opacity-60" : ""}`}>
+          <div
+            key={item.child.id}
+            id={`child-${item.child.id}`}
+            className={`bg-white dark:bg-[#1a2438] rounded-2xl p-4 border shadow-sm transition-all duration-500 ${
+              highlightChildId === item.child.id
+                ? "border-primary ring-4 ring-primary/20 opacity-100"
+                : item.existing ? "border-gray-100 dark:border-gray-800 opacity-60" : "border-gray-100 dark:border-gray-800"
+            }`}
+          >
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-sm font-bold">{item.child.first_name.charAt(0)}{item.child.last_name.charAt(0)}</div>
@@ -177,6 +263,15 @@ export default function ChildrenAttendancePage() {
                     </div>
                     {(item.existing as AttendanceChild & { check_in?: string }).check_in && (
                       <span className="text-xs text-gray-400">{formatTime((item.existing as AttendanceChild & { check_in?: string }).check_in!)}</span>
+                    )}
+                    {!isAdmin && (
+                      <button
+                        onClick={() => { setCorrectionItem(item); setCorrectionReason(""); }}
+                        aria-label="Reportar error"
+                        className="flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-400 transition-all active:scale-95"
+                      >
+                        <ExclamationTriangleIcon className="w-4 h-4" />
+                      </button>
                     )}
                   </div>
                 ) : (
@@ -201,6 +296,26 @@ export default function ChildrenAttendancePage() {
       </div>
 
       {filtered.length === 0 && <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-12 text-center border border-gray-100 dark:border-gray-800"><p className="text-gray-400 font-medium">{search ? "No se encontraron resultados" : "No hay ninos en este grupo"}</p></div>}
+
+      <Modal open={!!correctionItem} onClose={() => setCorrectionItem(null)} title="Reportar Error de Asistencia" size="md">
+        {correctionItem && (
+          <div className="space-y-4">
+            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+              <div className="flex items-center gap-2">
+                <p className="font-bold text-gray-900 dark:text-white">{correctionItem.child.first_name} {correctionItem.child.last_name}</p>
+                {correctionItem.child.child_id_code && <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary/10 text-primary">{correctionItem.child.child_id_code}</span>}
+              </div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Marcado como: <span className={`font-bold ${correctionItem.existing?.status === "present" ? "text-emerald-500" : "text-red-500"}`}>{correctionItem.existing?.status === "present" ? "Asistio" : "No asistio"}</span></p>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Describe el error cometido. El administrador revisara tu solicitud.</p>
+            <div><label className="block text-sm font-semibold text-gray-900 dark:text-white mb-2">Motivo del error *</label><textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} placeholder="Ej: Marque No asistio por error, el nino si asistio..." rows={3} className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all resize-none" /></div>
+            <div className="flex justify-end gap-3 pt-2">
+              <button type="button" onClick={() => setCorrectionItem(null)} className="px-4 py-2 rounded-xl text-sm font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-colors">Cancelar</button>
+              <button onClick={submitCorrection} disabled={!correctionReason.trim()} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md disabled:opacity-50">Enviar Solicitud</button>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       <Modal open={!!editItem} onClose={() => setEditItem(null)} title="Corregir Asistencia" size="md">
         {editItem && (
