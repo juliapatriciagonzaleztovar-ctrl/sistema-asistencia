@@ -32,27 +32,33 @@ export function PhotoUpload({ currentPhoto, onPhotoUploaded, onPhotoRemoved, col
 
     if (!file.type.startsWith("image/")) {
       toast.error("Solo se permiten imagenes");
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       toast.error("La imagen no puede superar 5MB");
+      if (inputRef.current) inputRef.current.value = "";
       return;
     }
 
     setUploading(true);
     try {
-      const resized = await resizeImage(file, 400, 400);
-      const url = await uploadPhoto(resized, collection, entityId);
+      let uploadFile = file;
+      if (file.size > 100 * 1024) {
+        uploadFile = await resizeImage(file, 400, 400);
+      }
+      const url = await uploadPhoto(uploadFile, collection, entityId);
       setPreview(url);
       onPhotoUploaded(url);
       toast.success("Foto subida");
     } catch (err) {
+      console.error("Error uploading photo:", err);
       toast.error("Error al subir foto");
-      console.error(err);
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
     }
-    setUploading(false);
-    if (inputRef.current) inputRef.current.value = "";
   }
 
   function handleRemove(e: React.MouseEvent) {
