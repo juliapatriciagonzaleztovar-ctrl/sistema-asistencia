@@ -7,6 +7,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
+import { PhotoUpload, AvatarFallback } from "@/components/ui/PhotoUpload";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, UserGroupIcon } from "@heroicons/react/24/outline";
@@ -19,7 +20,7 @@ export default function ChildrenPage() {
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [editingChild, setEditingChild] = useState<Child | null>(null);
-  const [form, setForm] = useState({ first_name: "", last_name: "", document: "", age: "", group_id: "", shift: "manana", status: "active" as "active" | "inactive", observations: "" });
+  const [form, setForm] = useState({ first_name: "", last_name: "", document: "", age: "", group_id: "", shift: "manana", status: "active" as "active" | "inactive", observations: "", photo_url: "" });
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const nextChildCode = useMemo(() => {
@@ -49,7 +50,7 @@ export default function ChildrenPage() {
 
   function openCreate() {
     setEditingChild(null);
-    setForm({ first_name: "", last_name: "", document: "", age: "", group_id: "", shift: "manana", status: "active", observations: "" });
+    setForm({ first_name: "", last_name: "", document: "", age: "", group_id: "", shift: "manana", status: "active", observations: "", photo_url: "" });
     setShowModal(true);
   }
 
@@ -58,7 +59,7 @@ export default function ChildrenPage() {
     setForm({
       first_name: child.first_name, last_name: child.last_name, document: child.document || "",
       age: child.age ? String(child.age) : "", group_id: child.group_id || "", shift: child.shift,
-      status: child.status, observations: child.observations || "",
+      status: child.status, observations: child.observations || "", photo_url: child.photo_url || "",
     });
     setShowModal(true);
   }
@@ -69,7 +70,7 @@ export default function ChildrenPage() {
       toast.error("Nombres y Apellidos son obligatorios");
       return;
     }
-    const payload = { ...form, age: form.age ? Number(form.age) : null, group_id: form.group_id || null };
+    const payload = { ...form, age: form.age ? Number(form.age) : null, group_id: form.group_id || null, photo_url: form.photo_url || null };
     try {
       if (editingChild) {
         await updateDoc(doc(getFirebaseDb(), "children", editingChild.id), payload);
@@ -124,31 +125,30 @@ export default function ChildrenPage() {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((child) => (
-            <div key={child.id} className="bg-white dark:bg-[#1a2438] rounded-2xl p-5 border border-gray-100 dark:border-gray-800 shadow-sm group">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-sm font-bold shadow-sm">{child.first_name.charAt(0)}{child.last_name.charAt(0)}</div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-bold text-gray-900 dark:text-white text-[15px]">{child.first_name} {child.last_name}</h3>
-                      {child.child_id_code && <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-primary/10 text-primary">{child.child_id_code}</span>}
-                    </div>
-                    <p className="text-[12px] text-gray-500 dark:text-gray-400">{child.age} anos</p>
-                  </div>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(child)} aria-label="Editar nino" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-primary/10 hover:text-primary transition-colors"><PencilIcon className="w-4 h-4" /></button>
-                  <button onClick={() => setDeleteConfirm(child.id)} aria-label="Eliminar nino" className="w-8 h-8 rounded-lg flex items-center justify-center text-gray-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-900/20 transition-colors"><TrashIcon className="w-4 h-4" /></button>
+            <div key={child.id} className="bg-white dark:bg-[#1a2438] rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden group hover:shadow-md transition-all">
+              <div className="relative h-32 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
+                {child.photo_url ? (
+                  <img src={child.photo_url} alt={`${child.first_name} ${child.last_name}`} className="w-full h-full object-cover" />
+                ) : (
+                  <AvatarFallback name={`${child.first_name} ${child.last_name}`} size="lg" />
+                )}
+                {child.child_id_code && (
+                  <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/90 dark:bg-gray-900/90 text-primary shadow-sm">{child.child_id_code}</span>
+                )}
+                <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => openEdit(child)} aria-label="Editar nino" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-primary shadow-sm transition-colors"><PencilIcon className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => setDeleteConfirm(child.id)} aria-label="Eliminar nino" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-red-500 shadow-sm transition-colors"><TrashIcon className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[13px]"><span className="text-gray-500 dark:text-gray-400">Grupo:</span><span className="font-medium text-gray-900 dark:text-white">{child.group?.name || "Sin grupo"}</span></div>
-                <div className="flex items-center gap-2 text-[13px]"><span className="text-gray-500 dark:text-gray-400">Jornada:</span><span className="font-medium text-gray-900 dark:text-white capitalize">{child.shift}</span></div>
-              </div>
-              <div className="mt-4 pt-3 border-t border-gray-100 dark:border-gray-800">
-                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${child.status === "active" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}><span className={`w-2 h-2 rounded-full ${child.status === "active" ? "bg-emerald-500" : "bg-gray-400"}`} />{child.status === "active" ? "Activo" : "Inactivo"}</span>
+              <div className="p-4 text-center">
+                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{child.first_name} {child.last_name}</h3>
+                <p className="text-[11px] text-gray-400 mt-1">{child.age} anos · {child.shift === "completa" ? "J. Completa" : child.shift === "manana" ? "Manana" : "Tarde"}</p>
+                <div className="mt-2 flex items-center justify-center gap-2">
+                  {child.group?.name && <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary">{child.group.name}</span>}
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${child.status === "active" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>{child.status === "active" ? "Activo" : "Inactivo"}</span>
+                </div>
               </div>
             </div>
           ))}
@@ -163,6 +163,17 @@ export default function ChildrenPage() {
 
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editingChild ? "Editar Nino" : "Registrar Nino"} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex flex-col items-center gap-4">
+            <PhotoUpload
+              currentPhoto={form.photo_url || null}
+              onPhotoUploaded={(url) => setForm({ ...form, photo_url: url })}
+              onPhotoRemoved={() => setForm({ ...form, photo_url: "" })}
+              collection="children"
+              entityId={editingChild?.id || "new"}
+              size="lg"
+            />
+            <p className="text-xs text-gray-400">Foto opcional (max 5MB)</p>
+          </div>
           {!editingChild && (
             <div className="bg-primary/5 border border-primary/20 rounded-xl px-4 py-3 flex items-center gap-3">
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">ID del Nino:</span>

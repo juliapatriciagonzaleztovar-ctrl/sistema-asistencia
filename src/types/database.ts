@@ -28,6 +28,7 @@ export interface Child {
   shift: string;
   status: "active" | "inactive";
   observations: string | null;
+  photo_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -42,6 +43,7 @@ export interface Teacher {
   role: string;
   hire_date: string;
   status: "active" | "inactive";
+  photo_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -57,6 +59,7 @@ export interface Practitioner {
   study: string | null;
   hire_date: string;
   status: "active" | "inactive";
+  photo_url: string | null;
   created_at: string;
   updated_at: string;
 }
