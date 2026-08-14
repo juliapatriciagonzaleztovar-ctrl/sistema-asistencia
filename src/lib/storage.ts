@@ -40,36 +40,40 @@ export async function deletePhoto(
   }
 }
 
-export function resizeImage(file: File, maxWidth: number = 400, maxHeight: number = 400): Promise<File> {
+export async function resizeImage(file: File, maxWidth: number = 400, maxHeight: number = 400): Promise<File> {
   return new Promise((resolve) => {
     try {
       const reader = new FileReader();
       reader.onerror = () => resolve(file);
       reader.onload = (e) => {
-        const img = new Image();
-        img.onerror = () => resolve(file);
-        img.onload = () => {
-          try {
-            const canvas = document.createElement("canvas");
-            let width = img.width;
-            let height = img.height;
-            if (width > maxWidth) { height = (height * maxWidth) / width; width = maxWidth; }
-            if (height > maxHeight) { width = (width * maxHeight) / height; height = maxHeight; }
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            if (!ctx) { resolve(file); return; }
-            ctx.drawImage(img, 0, 0, width, height);
-            canvas.toBlob((blob) => {
-              if (blob) {
-                resolve(new File([blob], "photo.jpg", { type: "image/jpeg" }));
-              } else {
-                resolve(file);
-              }
-            }, "image/jpeg", 0.85);
-          } catch { resolve(file); }
-        };
-        img.src = e.target?.result as string;
+        try {
+          const img = new Image();
+          img.onerror = () => resolve(file);
+          img.onload = () => {
+            try {
+              const canvas = document.createElement("canvas");
+              let w = img.width;
+              let h = img.height;
+              if (w > maxWidth) { h = Math.round((h * maxWidth) / w); w = maxWidth; }
+              if (h > maxHeight) { w = Math.round((w * maxHeight) / h); h = maxHeight; }
+              canvas.width = w;
+              canvas.height = h;
+              const ctx = canvas.getContext("2d");
+              if (!ctx) { resolve(file); return; }
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, w, h);
+              ctx.drawImage(img, 0, 0, w, h);
+              canvas.toBlob((blob) => {
+                if (blob && blob.size > 100) {
+                  resolve(new File([blob], file.name.replace(/\.[^.]+$/, ".jpg") || "photo.jpg", { type: "image/jpeg", lastModified: Date.now() }));
+                } else {
+                  resolve(file);
+                }
+              }, "image/jpeg", 0.8);
+            } catch { resolve(file); }
+          };
+          img.src = e.target?.result as string;
+        } catch { resolve(file); }
       };
       reader.readAsDataURL(file);
     } catch { resolve(file); }

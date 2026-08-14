@@ -44,9 +44,15 @@ export function PhotoUpload({ currentPhoto, onPhotoUploaded, onPhotoRemoved, col
 
     setUploading(true);
     try {
+      // Subir archivo original (ya limitado a 5MB). Compresion simple si es grande.
       let uploadFile = file;
-      if (file.size > 100 * 1024) {
-        uploadFile = await resizeImage(file, 400, 400);
+      if (file.size > 500 * 1024) {
+        try {
+          uploadFile = await resizeImage(file, 400, 400);
+        } catch {
+          // Si resize falla, usar original
+          uploadFile = file;
+        }
       }
       const url = await uploadPhoto(uploadFile, collection, entityId);
       setPreview(url);
