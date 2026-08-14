@@ -1,5 +1,11 @@
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
 import { getFirebaseStorage } from "./firebase";
+
+function timeoutPromise(ms: number): Promise<never> {
+  return new Promise((_, reject) => {
+    setTimeout(() => reject(new Error("Upload timeout")), ms);
+  });
+}
 
 export async function uploadPhoto(
   file: File,
@@ -9,19 +15,11 @@ export async function uploadPhoto(
   const storage = getFirebaseStorage();
   const storageRef = ref(storage, `${collection}/${entityId}.jpg`);
 
-  const uploadTask = uploadBytesResumable(storageRef, file, { contentType: "image/jpeg" });
+  const uploadPromise = uploadBytes(storageRef, file, { contentType: "image/jpeg" }).then(
+    () => getDownloadURL(storageRef)
+  );
 
-  return new Promise<string>((resolve, reject) => {
-    uploadTask.on(
-      "state_changed",
-      null,
-      (error) => reject(error),
-      async () => {
-        const url = await getDownloadURL(uploadTask.snapshot.ref);
-        resolve(url);
-      }
-    );
-  });
+  return Promise.race([uploadPromise, timeoutPromise(15000)]);
 }
 
 export async function deletePhoto(
