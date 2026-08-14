@@ -1,0 +1,12 @@
+[
+  {
+    "origin": [
+      "https://casita-tareas.vercel.app",
+      "https://sistema-asistencia-two.vercel.app",
+      "https://localhost:3000"
+    ],
+    "method": ["GET", "PUT", "POST", "DELETE", "HEAD", "OPTIONS"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": ["Content-Type", "Content-Disposition", "Content-Encoding", "Cache-Control", "x-goog-resumable"]
+  }
+]

@@ -1,25 +1,28 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, deleteObject } from "firebase/storage";
 import { getFirebaseStorage } from "./firebase";
-
-function timeoutPromise(ms: number): Promise<never> {
-  return new Promise((_, reject) => {
-    setTimeout(() => reject(new Error("Upload timeout")), ms);
-  });
-}
 
 export async function uploadPhoto(
   file: File,
   collection: "children" | "teachers" | "practitioners",
   entityId: string
 ): Promise<string> {
-  const storage = getFirebaseStorage();
-  const storageRef = ref(storage, `${collection}/${entityId}.jpg`);
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("collection", collection);
+  formData.append("entityId", entityId);
 
-  const uploadPromise = uploadBytes(storageRef, file, { contentType: "image/jpeg" }).then(
-    () => getDownloadURL(storageRef)
-  );
+  const res = await fetch("/api/upload", {
+    method: "POST",
+    body: formData,
+  });
 
-  return Promise.race([uploadPromise, timeoutPromise(15000)]);
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || "Upload failed");
+  }
+
+  const data = await res.json();
+  return data.url;
 }
 
 export async function deletePhoto(
