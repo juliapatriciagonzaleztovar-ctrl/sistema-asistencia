@@ -9,7 +9,10 @@ function getApp(): App {
   if (app) return app;
   const serviceAccount: ServiceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || "{}");
   app = getApps().length === 0
-    ? initializeApp({ credential: cert(serviceAccount) })
+    ? initializeApp({
+        credential: cert(serviceAccount),
+        storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "sistema-asistencia-fb5f5.firebasestorage.app",
+      })
     : getApps()[0];
   return app;
 }
