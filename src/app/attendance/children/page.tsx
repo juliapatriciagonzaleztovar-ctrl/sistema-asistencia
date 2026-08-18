@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { useAuth } from "@/lib/auth-context";
-import { getTodayDate, formatTime } from "@/lib/utils";
+import { getTodayDate, formatTime, isWeekday } from "@/lib/utils";
 import { registerSingleChildAttendance, autoMarkAbsentChildren, updateChildAttendance } from "@/lib/attendance";
 import { createChildCorrectionRequest, getMyChildCorrections } from "@/lib/corrections";
 import { logAction } from "@/lib/audit";
@@ -196,6 +196,22 @@ export default function ChildrenAttendancePage() {
   const unmarked = items.filter((i) => !i.existing).length;
 
   if (loading) return <LoadingSpinner label="Cargando..." />;
+
+  if (!isWeekday(date)) {
+    return (
+      <div className="space-y-6 animate-fade-in">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl gradient-primary flex items-center justify-center shadow-md"><ClipboardDocumentCheckIcon className="w-6 h-6 text-white" /></div>
+          <div><h1 className="text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Asistencia de Ninos</h1><p className="text-sm text-gray-500 dark:text-gray-400">{date}</p></div>
+        </div>
+        <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-12 border border-gray-100 dark:border-gray-800 shadow-sm text-center">
+          <ClockIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" />
+          <p className="text-gray-700 dark:text-gray-300 font-medium">La atencion es de Lunes a Viernes</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hoy no se registra asistencia</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">

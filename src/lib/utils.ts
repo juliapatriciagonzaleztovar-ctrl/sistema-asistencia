@@ -107,3 +107,23 @@ export function getMonthName(dateStr: string) {
   const date = new Date(dateStr);
   return date.toLocaleDateString("es-CO", { month: "long" });
 }
+
+export function isWeekday(dateStr: string): boolean {
+  const date = new Date(dateStr + "T12:00:00");
+  const day = date.getDay();
+  return day >= 1 && day <= 5;
+}
+
+export function getWeekdaysBetween(startDate: string, endDate: string): string[] {
+  const days: string[] = [];
+  const current = new Date(startDate + "T12:00:00");
+  const end = new Date(endDate + "T12:00:00");
+  while (current <= end) {
+    const day = current.getDay();
+    if (day >= 1 && day <= 5) {
+      days.push(current.toISOString().split("T")[0]);
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return days;
+}
