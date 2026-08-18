@@ -103,7 +103,7 @@ export default function PractitionersPage() {
       <Modal open={showModal} onClose={() => setShowModal(false)} title={editing ? "Editar Practicante" : "Registrar Practicante"} size="lg">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="flex flex-col items-center gap-4">
-            <PhotoUpload currentPhoto={form.photo_url || null} onPhotoUploaded={(url) => setForm({ ...form, photo_url: url })} onPhotoRemoved={() => setForm({ ...form, photo_url: "" })} collection="practitioners" entityId={editing?.id || "new"} size="lg" />
+            <PhotoUpload currentPhoto={form.photo_url || null} onPhotoUploaded={(url) => setForm({ ...form, photo_url: url })} onPhotoRemoved={() => setForm({ ...form, photo_url: "" })} size="lg" />
             <p className="text-xs text-gray-400">Foto opcional (max 5MB)</p>
           </div>
           <div className="grid grid-cols-2 gap-4"><Input label="Nombres" value={form.first_name} onChange={(e) => setForm({ ...form, first_name: e.target.value })} required /><Input label="Apellidos" value={form.last_name} onChange={(e) => setForm({ ...form, last_name: e.target.value })} required /></div>

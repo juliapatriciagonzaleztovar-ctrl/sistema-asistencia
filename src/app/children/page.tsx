@@ -168,8 +168,6 @@ export default function ChildrenPage() {
               currentPhoto={form.photo_url || null}
               onPhotoUploaded={(url) => setForm({ ...form, photo_url: url })}
               onPhotoRemoved={() => setForm({ ...form, photo_url: "" })}
-              collection="children"
-              entityId={editingChild?.id || "new"}
               size="lg"
             />
             <p className="text-xs text-gray-400">Foto opcional (max 5MB)</p>

@@ -2,20 +2,18 @@
 
 import { useRef, useState } from "react";
 import { PhotoIcon, XMarkIcon } from "@heroicons/react/24/outline";
-import { uploadPhoto, resizeImage } from "@/lib/storage";
+import { resizeToBase64 } from "@/lib/storage";
 import { toast } from "react-hot-toast";
 import { cn } from "@/lib/utils";
 
 interface PhotoUploadProps {
   currentPhoto: string | null;
-  onPhotoUploaded: (url: string) => void;
+  onPhotoUploaded: (base64DataUrl: string) => void;
   onPhotoRemoved: () => void;
-  collection: "children" | "teachers" | "practitioners";
-  entityId: string;
   size?: "sm" | "md" | "lg";
 }
 
-export function PhotoUpload({ currentPhoto, onPhotoUploaded, onPhotoRemoved, collection, entityId, size = "md" }: PhotoUploadProps) {
+export function PhotoUpload({ currentPhoto, onPhotoUploaded, onPhotoRemoved, size = "md" }: PhotoUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(currentPhoto);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,23 +42,13 @@ export function PhotoUpload({ currentPhoto, onPhotoUploaded, onPhotoRemoved, col
 
     setUploading(true);
     try {
-      // Subir archivo original (ya limitado a 5MB). Compresion simple si es grande.
-      let uploadFile = file;
-      if (file.size > 500 * 1024) {
-        try {
-          uploadFile = await resizeImage(file, 400, 400);
-        } catch {
-          // Si resize falla, usar original
-          uploadFile = file;
-        }
-      }
-      const url = await uploadPhoto(uploadFile, collection, entityId);
-      setPreview(url);
-      onPhotoUploaded(url);
-      toast.success("Foto subida");
+      const dataUrl = await resizeToBase64(file, 400, 400, 0.8);
+      setPreview(dataUrl);
+      onPhotoUploaded(dataUrl);
+      toast.success("Foto lista");
     } catch (err) {
-      console.error("Error uploading photo:", err);
-      toast.error("Error al subir foto");
+      console.error("Error processing photo:", err);
+      toast.error("Error al procesar foto");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
@@ -94,7 +82,7 @@ export function PhotoUpload({ currentPhoto, onPhotoUploaded, onPhotoRemoved, col
         ) : (
           <div className="flex flex-col items-center gap-1 text-gray-400">
             <PhotoIcon className={cn("text-gray-400", size === "sm" ? "w-6 h-6" : size === "md" ? "w-8 h-8" : "w-10 h-10")} />
-            <span className={cn("font-medium", size === "sm" ? "text-[9px]" : "text-[11px]")}>{uploading ? "Subiendo..." : "Foto"}</span>
+            <span className={cn("font-medium", size === "sm" ? "text-[9px]" : "text-[11px]")}>{uploading ? "Procesando..." : "Foto"}</span>
           </div>
         )}
       </button>
