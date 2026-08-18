@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     });
 
     const client = await auth.getClient();
-    const bucketName = "sistema-asistencia-fb5f5.firebasestorage.app";
+    const bucketName = "sistema-asistencia-fb5f5.appspot.com";
     const fileName = `${collection}/${entityId}.jpg`;
     const buffer = Buffer.from(await file.arrayBuffer());
 

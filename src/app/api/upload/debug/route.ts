@@ -27,7 +27,7 @@ export async function GET() {
     const client = await auth.getClient();
     debug.authOk = true;
 
-    const bucketName = "sistema-asistencia-fb5f5.firebasestorage.app";
+    const bucketName = "sistema-asistencia-fb5f5.appspot.com";
     const testFileName = "_test.txt";
     const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${bucketName}/o?uploadType=media&name=${encodeURIComponent(testFileName)}`;
 
