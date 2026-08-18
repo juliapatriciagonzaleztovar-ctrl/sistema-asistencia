@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { GoogleAuth } from "google-auth-library";
 
 export async function POST(req: NextRequest) {
   try {
@@ -11,28 +12,47 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
     }
 
-    const sa = process.env.FIREBASE_SERVICE_ACCOUNT;
-    if (!sa || sa === "{}" || !JSON.parse(sa).private_key) {
-      return NextResponse.json({ error: "Service account not configured on server" }, { status: 500 });
+    const saRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
+    if (!saRaw || saRaw === "{}" || !JSON.parse(saRaw).private_key) {
+      return NextResponse.json({ error: "Service account not configured" }, { status: 500 });
     }
 
-    const { getAdminStorage } = await import("@/lib/firebase-admin");
-    const storage = getAdminStorage();
-    const bucket = storage.bucket("sistema-asistencia-fb5f5.firebasestorage.app");
+    const sa = JSON.parse(saRaw);
+    const auth = new GoogleAuth({
+      credentials: {
+        client_email: sa.client_email,
+        private_key: sa.private_key,
+      },
+      scopes: ["https://www.googleapis.com/auth/cloud-platform"],
+    });
+
+    const client = await auth.getClient();
+    const bucketName = "sistema-asistencia-fb5f5.firebasestorage.app";
     const fileName = `${collection}/${entityId}.jpg`;
     const buffer = Buffer.from(await file.arrayBuffer());
 
-    await bucket.file(fileName).save(buffer, {
-      contentType: "image/jpeg",
-      metadata: { cacheControl: "public, max-age=31536000" },
+    const uploadUrl = `https://storage.googleapis.com/upload/storage/v1/b/${bucketName}/o?uploadType=media&name=${encodeURIComponent(fileName)}`;
+
+    const response = await client.request({
+      url: uploadUrl,
+      method: "POST",
+      headers: {
+        "Content-Type": "image/jpeg",
+        "Content-Length": String(buffer.length),
+      },
+      body: buffer,
     });
 
-    const url = `https://firebasestorage.googleapis.com/v0/b/sistema-asistencia-fb5f5.firebasestorage.app/o/${encodeURIComponent(fileName)}?alt=media`;
+    if (response.status !== 200) {
+      throw new Error(`Storage returned ${response.status}`);
+    }
+
+    const url = `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(fileName)}?alt=media`;
 
     return NextResponse.json({ url });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : "Upload failed";
-    console.error("Upload API error:", msg, err);
+    console.error("Upload API error:", msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
