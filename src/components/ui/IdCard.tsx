@@ -14,7 +14,7 @@ interface IdCardProps {
 export function IdCard({ photoUrl, name, idCode, lines, status = "active", className }: IdCardProps) {
   return (
     <div className={`bg-white dark:bg-[#1a2438] rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden flex ${className}`}>
-      <div className="relative w-24 h-24 shrink-0 bg-gradient-to-br from-gray-100 dark:bg-gray-800 to-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
+      <div className="relative w-20 h-20 shrink-0 bg-gradient-to-br from-gray-100 dark:bg-gray-800 to-gray-200 dark:bg-gray-700 flex items-center justify-center overflow-hidden">
         {photoUrl ? (
           <img src={photoUrl} alt={name} className="w-full h-full object-cover" />
         ) : (
