@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PhotoUpload, AvatarFallback } from "@/components/ui/PhotoUpload";
+import { IdCard } from "@/components/ui/IdCard";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, AcademicCapIcon } from "@heroicons/react/24/outline";
@@ -72,27 +73,22 @@ export default function TeachersPage() {
       </div>
       <div className="relative"><MagnifyingGlassIcon className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" aria-hidden="true" /><input type="text" placeholder="Buscar por nombre..." aria-label="Buscar profesores por nombre" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full px-4 py-3 pl-11 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all" /></div>
       {filtered.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((t) => (
-            <div key={t.id} className="bg-white dark:bg-[#1a2438] rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-              <div className="relative h-32 bg-gradient-to-br from-emerald-500/20 to-emerald-500/5 flex items-center justify-center">
-                {t.photo_url ? (
-                  <img src={t.photo_url} alt={`${t.first_name} ${t.last_name}`} className="w-full h-full object-cover" />
-                ) : (
-                  <AvatarFallback name={`${t.first_name} ${t.last_name}`} size="lg" />
-                )}
-                <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(t)} aria-label="Editar profesor" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-primary shadow-sm transition-colors"><PencilIcon className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => setDeleteConfirm(t.id)} aria-label="Eliminar profesor" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-red-500 shadow-sm transition-colors"><TrashIcon className="w-3.5 h-3.5" /></button>
-                </div>
-              </div>
-              <div className="p-4 text-center">
-                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{t.first_name} {t.last_name}</h3>
-                <p className="text-[11px] text-gray-400 mt-1">{t.role} · {t.email || "Sin email"}</p>
-                <p className="text-[11px] text-gray-400">{t.document || "Sin doc"}</p>
-                <div className="mt-2 flex items-center justify-center">
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${t.status === "active" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>{t.status === "active" ? "Activo" : "Inactivo"}</span>
-                </div>
+            <div key={t.id} className="group relative">
+              <IdCard
+                photoUrl={t.photo_url}
+                name={`${t.first_name} ${t.last_name}`}
+                lines={[
+                  t.role,
+                  t.email || "Sin email",
+                  t.document || "Sin doc",
+                ]}
+                status={t.status}
+              />
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => openEdit(t)} aria-label="Editar profesor" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-primary shadow-sm transition-colors"><PencilIcon className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setDeleteConfirm(t.id)} aria-label="Eliminar profesor" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-red-500 shadow-sm transition-colors"><TrashIcon className="w-3.5 h-3.5" /></button>
               </div>
             </div>
           ))}

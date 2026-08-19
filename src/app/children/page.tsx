@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { PhotoUpload, AvatarFallback } from "@/components/ui/PhotoUpload";
+import { IdCard } from "@/components/ui/IdCard";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
 import { PlusIcon, PencilIcon, TrashIcon, MagnifyingGlassIcon, UserGroupIcon } from "@heroicons/react/24/outline";
@@ -125,30 +126,22 @@ export default function ChildrenPage() {
       </div>
 
       {filtered.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((child) => (
-            <div key={child.id} className="bg-white dark:bg-[#1a2438] rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden group hover:shadow-md transition-all">
-              <div className="relative h-32 bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                {child.photo_url ? (
-                  <img src={child.photo_url} alt={`${child.first_name} ${child.last_name}`} className="w-full h-full object-cover" />
-                ) : (
-                  <AvatarFallback name={`${child.first_name} ${child.last_name}`} size="lg" />
-                )}
-                {child.child_id_code && (
-                  <span className="absolute top-2 right-2 px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/90 dark:bg-gray-900/90 text-primary shadow-sm">{child.child_id_code}</span>
-                )}
-                <div className="absolute top-2 left-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => openEdit(child)} aria-label="Editar nino" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-primary shadow-sm transition-colors"><PencilIcon className="w-3.5 h-3.5" /></button>
-                  <button onClick={() => setDeleteConfirm(child.id)} aria-label="Eliminar nino" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-red-500 shadow-sm transition-colors"><TrashIcon className="w-3.5 h-3.5" /></button>
-                </div>
-              </div>
-              <div className="p-4 text-center">
-                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{child.first_name} {child.last_name}</h3>
-                <p className="text-[11px] text-gray-400 mt-1">{child.age} anos · {child.shift === "completa" ? "J. Completa" : child.shift === "manana" ? "Manana" : "Tarde"}</p>
-                <div className="mt-2 flex items-center justify-center gap-2">
-                  {child.group?.name && <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-primary/10 text-primary">{child.group.name}</span>}
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-semibold ${child.status === "active" ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400" : "bg-gray-100 text-gray-500 dark:bg-gray-800 dark:text-gray-400"}`}>{child.status === "active" ? "Activo" : "Inactivo"}</span>
-                </div>
+            <div key={child.id} className="group relative">
+              <IdCard
+                photoUrl={child.photo_url}
+                name={`${child.first_name} ${child.last_name}`}
+                idCode={child.child_id_code}
+                lines={[
+                  `${child.age} anos · ${child.shift === "completa" ? "J. Completa" : child.shift === "manana" ? "Manana" : "Tarde"}`,
+                  child.group?.name || "Sin grupo",
+                ]}
+                status={child.status}
+              />
+              <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => openEdit(child)} aria-label="Editar nino" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-primary shadow-sm transition-colors"><PencilIcon className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setDeleteConfirm(child.id)} aria-label="Eliminar nino" className="w-7 h-7 rounded-lg bg-white/90 dark:bg-gray-900/90 flex items-center justify-center text-gray-600 hover:text-red-500 shadow-sm transition-colors"><TrashIcon className="w-3.5 h-3.5" /></button>
               </div>
             </div>
           ))}
