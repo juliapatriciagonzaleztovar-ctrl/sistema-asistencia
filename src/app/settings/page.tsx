@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy, where } from "firebase/firestore";
 import { getFirebaseDb } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
@@ -8,8 +8,8 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { exportToExcel } from "@/lib/export";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
-import { Cog6ToothIcon, DocumentArrowDownIcon, UserGroupIcon } from "@heroicons/react/24/outline";
-import type { Child, Group } from "@/types/database";
+import { Cog6ToothIcon, DocumentArrowDownIcon, UserGroupIcon, AcademicCapIcon, BriefcaseIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClockIcon, ArrowDownTrayIcon as DownloadIcon } from "@heroicons/react/24/outline";
+import type { Child, Group, Teacher, Practitioner } from "@/types/database";
 
 interface Setting { id: string; setting_key: string; setting_value: string | null; }
 
@@ -21,6 +21,9 @@ export default function SettingsPage() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [downloadGroup, setDownloadGroup] = useState("all");
   const [downloading, setDownloading] = useState(false);
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -62,11 +65,7 @@ export default function SettingsPage() {
       const snap = await getDocs(q);
       const children = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Child));
 
-      if (children.length === 0) {
-        toast.error("No hay ninos para descargar");
-        setDownloading(false);
-        return;
-      }
+      if (children.length === 0) { toast.error("No hay ninos para descargar"); setDownloading(false); return; }
 
       const groupName = downloadGroup === "all" ? "Todos" : groups.find((g) => g.id === downloadGroup)?.name || "Sin grupo";
 
@@ -82,22 +81,204 @@ export default function SettingsPage() {
 
       toast.success(`Lista de ${children.length} ninos descargada`);
       await logAction("export", "children", null, { group: groupName, count: children.length });
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Error al descargar");
-    }
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Error al descargar"); }
     setDownloading(false);
+  }
+
+  async function handleDownloadTeachers() {
+    setDownloading(true);
+    try {
+      const snap = await getDocs(query(collection(getFirebaseDb(), "teachers"), orderBy("first_name")));
+      const teachers = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Teacher));
+
+      if (teachers.length === 0) { toast.error("No hay profesores para descargar"); setDownloading(false); return; }
+
+      exportToExcel(
+        teachers.map((t) => ({
+          "Documento": t.document || "",
+          "Nombre Completo": `${t.first_name} ${t.last_name}`,
+          "Email": t.email || "",
+          "Telefono": t.phone || "",
+          "Rol": t.role,
+          "Fecha Contratacion": t.hire_date,
+          "Estado": t.status === "active" ? "Activo" : "Inactivo",
+        })),
+        "lista_profesores"
+      );
+
+      toast.success(`Lista de ${teachers.length} profesores descargada`);
+      await logAction("export", "teachers", null, { count: teachers.length });
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Error al descargar"); }
+    setDownloading(false);
+  }
+
+  async function handleDownloadPractitioners() {
+    setDownloading(true);
+    try {
+      const snap = await getDocs(query(collection(getFirebaseDb(), "practitioners"), orderBy("first_name")));
+      const practitioners = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Practitioner));
+
+      if (practitioners.length === 0) { toast.error("No hay practicantes para descargar"); setDownloading(false); return; }
+
+      exportToExcel(
+        practitioners.map((p) => ({
+          "Documento": p.document || "",
+          "Nombre Completo": `${p.first_name} ${p.last_name}`,
+          "Email": p.email || "",
+          "Telefono": p.phone || "",
+          "Estudio": p.study || "",
+          "Rol": p.role,
+          "Fecha Inicio": p.hire_date,
+          "Estado": p.status === "active" ? "Activo" : "Inactivo",
+        })),
+        "lista_practicantes"
+      );
+
+      toast.success(`Lista de ${practitioners.length} practicantes descargada`);
+      await logAction("export", "practitioners", null, { count: practitioners.length });
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Error al descargar"); }
+    setDownloading(false);
+  }
+
+  async function handleDownloadAllStaff() {
+    setDownloading(true);
+    try {
+      const [teachersSnap, practitionersSnap] = await Promise.all([
+        getDocs(query(collection(getFirebaseDb(), "teachers"), orderBy("first_name"))),
+        getDocs(query(collection(getFirebaseDb(), "practitioners"), orderBy("first_name"))),
+      ]);
+      const teachers = teachersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Teacher));
+      const practitioners = practitionersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Practitioner));
+      const allStaff = [
+        ...teachers.map((t) => ({ ...t, type: "Profesor" })),
+        ...practitioners.map((p) => ({ ...p, type: "Practicante" })),
+      ];
+
+      if (allStaff.length === 0) { toast.error("No hay personal para descargar"); setDownloading(false); return; }
+
+      exportToExcel(
+        allStaff.map((s) => ({
+          "Tipo": s.type,
+          "Documento": s.document || "",
+          "Nombre Completo": `${s.first_name} ${s.last_name}`,
+          "Email": s.email || "",
+          "Telefono": s.phone || "",
+          "Rol / Estudio": s.type === "Profesor" ? s.role : "study" in s ? (s as { study?: string }).study || "" : "",
+          "Fecha Inicio": s.hire_date,
+          "Estado": s.status === "active" ? "Activo" : "Inactivo",
+        })),
+        "lista_personal_completo"
+      );
+
+      toast.success(`Lista de ${allStaff.length} miembros descargada`);
+      await logAction("export", "staff", null, { teachers: teachers.length, practitioners: practitioners.length });
+    } catch (err: unknown) { toast.error(err instanceof Error ? err.message : "Error al descargar"); }
+    setDownloading(false);
+  }
+
+  async function handleBackup() {
+    setBackupLoading(true);
+    try {
+      const [childrenSnap, groupsSnap, teachersSnap, practitionersSnap, attendanceChildrenSnap, attendanceStaffSnap, settingsSnap, correctionsSnap, auditSnap] = await Promise.all([
+        getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
+        getDocs(collection(getFirebaseDb(), "groups")),
+        getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
+        getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
+        getDocs(collection(getFirebaseDb(), "attendance_children")),
+        getDocs(collection(getFirebaseDb(), "attendance_staff")),
+        getDocs(collection(getFirebaseDb(), "system_settings")),
+        getDocs(collection(getFirebaseDb(), "correction_requests")),
+        getDocs(collection(getFirebaseDb(), "correction_requests_children")),
+      ]);
+
+      const backup = {
+        version: 1,
+        timestamp: new Date().toISOString(),
+        children: childrenSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        groups: groupsSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        teachers: teachersSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        practitioners: practitionersSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        attendance_children: attendanceChildrenSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        attendance_staff: attendanceStaffSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        system_settings: settingsSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        correction_requests: correctionsSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+        correction_requests_children: auditSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+      };
+
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `backup_sistema_asistencia_${new Date().toISOString().split("T")[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success("Backup completo descargado");
+      await logAction("backup", "system", null, { collections: Object.keys(backup).length - 2 });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al hacer backup");
+    }
+    setBackupLoading(false);
+  }
+
+  async function handleRestore(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!confirm("Esto SOBREESCRIBIRA todos los datos del sistema. ¿Continuar?")) {
+      e.target.value = "";
+      return;
+    }
+
+    setBackupLoading(true);
+    try {
+      const text = await file.text();
+      const backup = JSON.parse(text);
+
+      if (!backup.version || !backup.timestamp) { throw new Error("Archivo de backup invalido"); }
+
+      const batchSize = 500;
+      const writeBatch = async (col: string, items: Array<Record<string, unknown>>) => {
+        const db = getFirebaseDb();
+        for (let i = 0; i < items.length; i += batchSize) {
+          const batch = items.slice(i, i + batchSize);
+          await Promise.all(batch.map((item) => {
+            const { id, ...data } = item;
+            return addDoc(collection(db, col), data);
+          }));
+        }
+      };
+
+      await Promise.all([
+        writeBatch("children", backup.children || []),
+        writeBatch("groups", backup.groups || []),
+        writeBatch("teachers", backup.teachers || []),
+        writeBatch("practitioners", backup.practitioners || []),
+        writeBatch("attendance_children", backup.attendance_children || []),
+        writeBatch("attendance_staff", backup.attendance_staff || []),
+        writeBatch("system_settings", backup.system_settings || []),
+        writeBatch("correction_requests", backup.correction_requests || []),
+        writeBatch("correction_requests_children", backup.correction_requests_children || []),
+      ]);
+
+      toast.success("Restauracion completa. Recarga la pagina.");
+      await logAction("restore", "system", null, { backupTimestamp: backup.timestamp });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al restaurar");
+    }
+    setBackupLoading(false);
+    e.target.value = "";
   }
 
   if (loading) return <LoadingSpinner label="Cargando configuracion..." />;
 
   const settingFields = [
-    { key: "institution_name", label: "Nombre de la institucion", placeholder: "Ej: Instituto Infantil ABC" },
+    { key: "institution_name", label: "Nombre de la institucion", placeholder: "Ej: Casita de tareas - La alegria del conocimiento" },
     { key: "institution_address", label: "Direccion", placeholder: "Ej: Calle 123 #456-789" },
     { key: "institution_phone", label: "Telefono", placeholder: "Ej: (601) 123-4567" },
-    { key: "morning_start", label: "Hora inicio jornada manana", placeholder: "Ej: 07:00" },
-    { key: "morning_end", label: "Hora fin jornada manana", placeholder: "Ej: 12:00" },
-    { key: "afternoon_start", label: "Hora inicio jornada tarde", placeholder: "Ej: 13:00" },
-    { key: "afternoon_end", label: "Hora fin jornada tarde", placeholder: "Ej: 17:00" },
+    { key: "auto_mark_children", label: "Hora auto-cierre ninos (HH:MM, 24h)", placeholder: "Ej: 17:50" },
+    { key: "auto_mark_staff", label: "Hora auto-cierre personal (HH:MM, 24h)", placeholder: "Ej: 16:30" },
+    { key: "work_days", label: "Dias laborables (1=Lun..7=Dom, separado por comas)", placeholder: "Ej: 1,2,3,4,5" },
   ];
 
   return (
@@ -126,22 +307,69 @@ export default function SettingsPage() {
 
       <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
         <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="w-9 h-9 rounded-xl gradient-success flex items-center justify-center"><DocumentArrowDownIcon className="w-5 h-5 text-white" /></div>
-          <h3 className="text-base font-bold text-gray-900 dark:text-white">Descargar Lista de Ninos</h3>
+          <div className="w-9 h-9 rounded-xl gradient-success flex items-center justify-center"><ClockIcon className="w-5 h-5 text-white" /></div>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">Horarios de Auto-Marcaje</h3>
         </div>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Descarga la lista de ninos registrados en formato Excel con su ID, nombre completo y edad.</p>
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="flex-1 min-w-[200px]">
-            <label htmlFor="download-group" className="block text-sm font-semibold text-gray-900 dark:text-white mb-1">Grupo</label>
-            <select id="download-group" value={downloadGroup} onChange={(e) => setDownloadGroup(e.target.value)} aria-label="Filtrar grupo para descarga" className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
-              <option value="all">Todos los grupos</option>
-              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-            </select>
-          </div>
-          <button onClick={handleDownloadChildren} disabled={downloading} className="px-5 py-2.5 gradient-success text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-50 flex items-center gap-2">
-            {downloading ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Descargando...</>) : (<><DocumentArrowDownIcon className="w-4 h-4" /> Descargar Excel</>)}
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Configura a que hora se marcan automaticamente las ausencias. Formato 24h (HH:MM).</p>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Input label="Auto-cierre ninos" value={form.auto_mark_children || "17:50"} onChange={(e) => setForm({ ...form, auto_mark_children: e.target.value })} type="time" />
+          <Input label="Auto-cierre personal" value={form.auto_mark_staff || "16:30"} onChange={(e) => setForm({ ...form, auto_mark_staff: e.target.value })} type="time" />
+        </div>
+        <Input label="Dias laborables" value={form.work_days || "1,2,3,4,5"} onChange={(e) => setForm({ ...form, work_days: e.target.value })} placeholder="1,2,3,4,5 (Lun=1...Dom=7)" />
+        <div className="mt-4 flex justify-end pt-4 border-t border-gray-200 dark:border-gray-700">
+          <button onClick={handleSave} disabled={saving} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-50 flex items-center gap-2">
+            {saving ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Guardando...</>) : "Guardar Horarios"}
           </button>
         </div>
+      </div>
+
+      <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="w-9 h-9 rounded-xl gradient-success flex items-center justify-center"><DownloadIcon className="w-5 h-5 text-white" /></div>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">Descargar Listados (Excel)</h3>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Genera listados en Excel con filtros opcionales.</p>
+
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex-1 min-w-[180px]">
+              <label htmlFor="download-group" className="block text-sm font-semibold text-gray-900 dark:text-white mb-1">Grupo</label>
+              <select id="download-group" value={downloadGroup} onChange={(e) => setDownloadGroup(e.target.value)} className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all">
+                <option value="all">Todos los grupos</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+            <button onClick={handleDownloadChildren} disabled={downloading} className="px-5 py-2.5 gradient-success text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-50 flex items-center gap-2">
+              {downloading ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />...</>) : (<><DocumentArrowDownIcon className="w-4 h-4" /> Descargar Ninos</>)}
+            </button>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button onClick={handleDownloadTeachers} disabled={downloading} className="px-5 py-2.5 bg-primary/10 text-primary font-semibold rounded-xl hover:bg-primary/20 transition-colors flex items-center gap-2"><AcademicCapIcon className="w-4 h-4" /> Profesores</button>
+            <button onClick={handleDownloadPractitioners} disabled={downloading} className="px-5 py-2.5 bg-amber/10 text-amber-600 dark:text-amber-400 font-semibold rounded-xl hover:bg-amber/20 transition-colors flex items-center gap-2"><BriefcaseIcon className="w-4 h-4" /> Practicantes</button>
+            <button onClick={handleDownloadAllStaff} disabled={downloading} className="px-5 py-2.5 gradient-primary text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-50 flex items-center gap-2"><UserGroupIcon className="w-4 h-4" /> Todo el Personal</button>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="w-9 h-9 rounded-xl gradient-primary flex items-center justify-center"><ArrowDownTrayIcon className="w-5 h-5 text-white" /></div>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">Backup / Restore</h3>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Backup completo del sistema (JSON) y restauracion. Incluye: ninos, grupos, profesores, practicantes, asistencia, configuracion, correcciones.</p>
+        <div className="flex flex-wrap gap-4">
+          <button onClick={handleBackup} disabled={backupLoading} className="px-5 py-2.5 gradient-success text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-50 flex items-center gap-2">
+            {backupLoading ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />...</>) : (<><ArrowDownTrayIcon className="w-4 h-4" /> Backup Completo (JSON)</>)}
+          </button>
+          <div className="relative">
+            <input type="file" accept=".json" onChange={handleRestore} className="hidden" id="backup-restore" ref={restoreInputRef} />
+            <button onClick={() => restoreInputRef.current?.click()} disabled={backupLoading} className="px-5 py-2.5 bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400 font-semibold rounded-xl hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors flex items-center gap-2">
+              <ArrowUpTrayIcon className="w-4 h-4" /> Restaurar Backup
+            </button>
+          </div>
+        </div>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-3">El backup incluye 9 colecciones. La restauracion SOBREESCRIBE todos los datos existentes.</p>
       </div>
     </div>
   );
