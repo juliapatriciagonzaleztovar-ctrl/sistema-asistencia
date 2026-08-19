@@ -35,6 +35,7 @@ export default function StaffAttendancePage() {
   const [correctionReason, setCorrectionReason] = useState("");
   const [search, setSearch] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
+  const [holidays, setHolidays] = useState<string[]>([]);
 
   useEffect(() => { loadData(); const i = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(i); }, []);
 
@@ -44,16 +45,18 @@ export default function StaffAttendancePage() {
       const autoMarked = await autoMarkAbsentStaff(user.uid);
       if (autoMarked > 0) toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 4:30pm)`, { icon: "\u2139\uFE0F" });
     }
-    const [teachersData, practitionersData, attendanceData] = await Promise.all([
+    const [teachersData, practitionersData, attendanceData, holidaysData] = await Promise.all([
       getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
       getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
       getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", today))),
+      getDocs(query(collection(getFirebaseDb(), "holidays"))),
     ]);
     const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceStaff));
     setItems([
       ...teachersData.docs.map((d) => ({ staff: { id: d.id, ...d.data() } as Teacher, type: "teacher" as const, attendance: attList.find((a) => a.staff_id === d.id && a.staff_type === "teacher") || null })),
       ...practitionersData.docs.map((d) => ({ staff: { id: d.id, ...d.data() } as Practitioner, type: "practitioner" as const, attendance: attList.find((a) => a.staff_id === d.id && a.staff_type === "practitioner") || null })),
     ]);
+    setHolidays(holidaysData.docs.map((d) => d.data().date));
     setLoading(false);
   }
 
@@ -158,9 +161,11 @@ export default function StaffAttendancePage() {
   const isAfterAutoMark = now.getHours() >= 16 && now.getMinutes() >= 30;
   const unmarked = items.filter((i) => !i.attendance).length;
 
+  const isHoliday = holidays.includes(date);
+
   if (loading) return <LoadingSpinner label="Cargando..." />;
 
-  if (!isWeekday(date)) {
+  if (!isWeekday(date) || isHoliday) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center gap-3">
@@ -169,7 +174,7 @@ export default function StaffAttendancePage() {
         </div>
         <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-12 border border-gray-100 dark:border-gray-800 shadow-sm text-center">
           <ClockIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" />
-          <p className="text-gray-700 dark:text-gray-300 font-medium">La atencion es de Lunes a Viernes</p>
+          <p className="text-gray-700 dark:text-gray-300 font-medium">{!isWeekday(date) ? "La atencion es de Lunes a Viernes" : "Hoy es dia festivo"}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hoy no se registra asistencia</p>
         </div>
       </div>

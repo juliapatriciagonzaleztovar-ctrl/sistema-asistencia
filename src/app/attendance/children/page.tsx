@@ -35,6 +35,7 @@ export default function ChildrenAttendancePage() {
   const [correctionReason, setCorrectionReason] = useState("");
   const [highlightChildId, setHighlightChildId] = useState<string | null>(null);
   const [myCorrections, setMyCorrections] = useState<CorrectionRequestChild[]>([]);
+  const [holidays, setHolidays] = useState<string[]>([]);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -57,10 +58,11 @@ export default function ChildrenAttendancePage() {
       const autoMarked = await autoMarkAbsentChildren(user.uid);
       if (autoMarked > 0) toast(`Se marcaron ${autoMarked} ninos como ausentes (pasado las 5:50pm)`, { icon: "\u2139\uFE0F" });
     }
-    const [childrenData, groupsData, attendanceData] = await Promise.all([
+    const [childrenData, groupsData, attendanceData, holidaysData] = await Promise.all([
       getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
       getDocs(collection(getFirebaseDb(), "groups")),
       getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", today))),
+      getDocs(query(collection(getFirebaseDb(), "holidays"))),
     ]);
     const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
     setItems(childrenData.docs.map((d) => {
@@ -69,6 +71,7 @@ export default function ChildrenAttendancePage() {
       return { child, existing, selectedStatus: (existing?.status as "present" | "absent") || null };
     }));
     setGroups(groupsData.docs.map((d) => ({ id: d.id, ...d.data() } as Group)));
+    setHolidays(holidaysData.docs.map((d) => d.data().date));
     setLoading(false);
   }
 
@@ -195,9 +198,11 @@ export default function ChildrenAttendancePage() {
   const isAfterAutoMark = now.getHours() >= 17 && now.getMinutes() >= 50;
   const unmarked = items.filter((i) => !i.existing).length;
 
+  const isHoliday = holidays.includes(date);
+
   if (loading) return <LoadingSpinner label="Cargando..." />;
 
-  if (!isWeekday(date)) {
+  if (!isWeekday(date) || isHoliday) {
     return (
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center gap-3">
@@ -206,7 +211,7 @@ export default function ChildrenAttendancePage() {
         </div>
         <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-12 border border-gray-100 dark:border-gray-800 shadow-sm text-center">
           <ClockIcon className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500 mb-3" />
-          <p className="text-gray-700 dark:text-gray-300 font-medium">La atencion es de Lunes a Viernes</p>
+          <p className="text-gray-700 dark:text-gray-300 font-medium">{!isWeekday(date) ? "La atencion es de Lunes a Viernes" : "Hoy es dia festivo"}</p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Hoy no se registra asistencia</p>
         </div>
       </div>
