@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAdminDb } from "@/lib/firebase-admin";
-import { getFirebaseDb } from "@/lib/firebase";
 
 function normalizeName(name: string): string {
   return name
@@ -20,6 +19,59 @@ function similarity(a: string, b: string): number {
   return intersection.size / union.size;
 }
 
+function fixEncoding(text: string): string {
+  return text
+    .replace(/Ã¡/g, "á")
+    .replace(/Ã©/g, "é")
+    .replace(/Ã­/g, "í")
+    .replace(/Ã³/g, "ó")
+    .replace(/Ãº/g, "ú")
+    .replace(/Ã±/g, "ñ")
+    .replace(/Ã/g, "Á")
+    .replace(/Ã‰/g, "É")
+    .replace(/Ã/g, "Í")
+    .replace(/Ã“/g, "Ó")
+    .replace(/Ãš/g, "Ú")
+    .replace(/Ã‘/g, "Ñ")
+    .replace(/Ã¼/g, "ü")
+    .replace(/Ãœ/g, "Ü");
+}
+
+// Try multiple matching strategies
+function findChildMatch(recordNormName: string, nameToChild: Map<string, any>): any {
+  // 1. Exact match
+  if (nameToChild.has(recordNormName)) {
+    return nameToChild.get(recordNormName);
+  }
+
+  // 2. Try matching by parts (first name + last name combinations)
+  const recordParts = recordNormName.split(" ").filter(p => p.length > 2);
+  if (recordParts.length >= 2) {
+    for (const [key, child] of nameToChild.entries()) {
+      const keyParts = key.split(" ");
+      const firstMatch = recordParts.some(rp => keyParts.some(kp => kp.startsWith(rp) || rp.startsWith(kp)));
+      const lastMatch = recordParts.some(rp => keyParts.some(kp => kp.endsWith(rp) || rp.endsWith(kp)));
+      if (firstMatch && lastMatch) {
+        return child;
+      }
+    }
+  }
+
+  // 3. Fuzzy similarity (Jaccard on words)
+  let bestMatch = null;
+  let bestScore = 0;
+  
+  for (const [key, child] of nameToChild.entries()) {
+    const score = similarity(recordNormName, key);
+    if (score > 0.65 && score > (bestScore || 0)) {
+      bestScore = score;
+      bestMatch = child;
+    }
+  }
+  
+  return bestMatch;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -33,7 +85,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "El archivo debe ser .csv" }, { status: 400 });
     }
 
-    const text = await file.text();
+    // Read file as array buffer to handle encoding
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Try to detect encoding and decode properly
+    let text: string;
+    try {
+      // Try UTF-8 first
+      text = new TextDecoder("utf-8").decode(uint8Array);
+    } catch {
+      // Fallback to Latin1 (common for Excel exports in Spanish)
+      text = new TextDecoder("latin1").decode(uint8Array);
+    }
+    
+    // Fix common encoding issues
+    text = fixEncoding(text);
+
     const lines = text.trim().split("\n");
 
     // Parse CSV (simple parser, handles quoted fields)
@@ -107,9 +175,12 @@ export async function POST(req: NextRequest) {
 
       const status = estadoRaw.includes("asist") ? "present" : "absent";
 
+      // Fix encoding on the name
+      const fixedName = fixEncoding(nombre.trim());
+
       records.push({
-        name: nombre.trim(),
-        normName: normalizeName(nombre.trim()),
+        name: fixedName,
+        normName: normalizeName(fixedName),
         date: fecha,
         status,
       });
@@ -119,12 +190,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No se encontraron registros válidos" }, { status: 400 });
     }
 
+    console.log(`[Import] Processing ${records.length} records`);
+
     // Load children from Firestore
     const adminDb = getAdminDb();
     const childrenSnap = await adminDb.collection("children").where("status", "==", "active").get();
     
-    const children: { id: string; name: string; normName: string; code: string; groupId: string }[] = [];
-    const nameToChild = new Map<string, { id: string; name: string; normName: string; code: string }>();
+    const nameToChild = new Map<string, { id: string; name: string; normName: string; firstName: string; lastName: string; code: string; groupId: string }>();
     
     childrenSnap.docs.forEach(doc => {
       const data = doc.data();
@@ -134,41 +206,24 @@ export async function POST(req: NextRequest) {
         id: doc.id,
         name: fullName,
         normName: norm,
+        firstName: normalizeName(data.first_name),
+        lastName: normalizeName(data.last_name),
         code: data.child_id_code || "",
         groupId: data.group_id,
       };
-      children.push(child);
       nameToChild.set(norm, child);
     });
 
+    console.log(`[Import] Loaded ${nameToChild.size} children from Firestore`);
+
     // Match and import
     let imported = 0;
-    let skipped = 0;
     const unmatched: string[] = [];
     const matchedNames: string[] = [];
 
     for (const record of records) {
-      // Exact match
-      let child = nameToChild.get(record.normName);
+      const child = findChildMatch(record.normName, nameToChild);
       
-      // Fuzzy match if not found
-      if (!child) {
-        let bestMatch = null;
-        let bestScore = 0;
-        
-        for (const [key, val] of nameToChild.entries()) {
-          const score = similarity(record.normName, key);
-          if (score > 0.7 && score > (bestScore || 0)) {
-            bestScore = score;
-            bestMatch = val;
-          }
-        }
-        
-        if (bestMatch) {
-          child = bestMatch;
-        }
-      }
-
       if (!child) {
         unmatched.push(`${record.name} (${record.date})`);
         continue;
@@ -182,7 +237,6 @@ export async function POST(req: NextRequest) {
         .get();
 
       if (!existingSnap.empty) {
-        // Already exists, skip
         continue;
       }
 
@@ -202,13 +256,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Log unmatched for debugging
+    if (unmatched.length > 0) {
+      console.log(`[Import] Unmatched (${unmatched.length}):`, unmatched.slice(0, 20));
+    }
+
     return NextResponse.json({
       success: true,
       totalRecords: records.length,
       imported: matchedNames.length,
       unmatched: unmatched.length,
-      unmatchedNames: unmatched,
-      importedDetails: matchedNames,
+      unmatchedNames: unmatched.slice(0, 50),
+      matchedNames: matchedNames.slice(0, 50),
     });
 
   } catch (err: unknown) {
