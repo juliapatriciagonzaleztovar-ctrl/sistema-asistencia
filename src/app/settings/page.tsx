@@ -8,7 +8,7 @@ import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { exportToExcel } from "@/lib/export";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
-import { Cog6ToothIcon, DocumentArrowDownIcon, UserGroupIcon, AcademicCapIcon, BriefcaseIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClockIcon, ArrowDownTrayIcon as DownloadIcon, CalendarDaysIcon, ShieldCheckIcon, PlusIcon, TrashIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon, DocumentArrowDownIcon, UserGroupIcon, AcademicCapIcon, BriefcaseIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClockIcon, ArrowDownTrayIcon as DownloadIcon, CalendarDaysIcon, ShieldCheckIcon, PlusIcon, TrashIcon, ArrowRightOnRectangleIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import type { Child, Group, Teacher, Practitioner } from "@/types/database";
 
 interface Setting { id: string; setting_key: string; setting_value: string | null; }
@@ -31,6 +31,8 @@ export default function SettingsPage() {
   const [auditExportLoading, setAuditExportLoading] = useState(false);
   const [auditDateFrom, setAuditDateFrom] = useState("");
   const [auditDateTo, setAuditDateTo] = useState("");
+  const [csvImportLoading, setCsvImportLoading] = useState(false);
+  const [csvImportResult, setCsvImportResult] = useState<{ imported: number; unmatched: number; unmatchedNames: string[] } | null>(null);
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -222,6 +224,14 @@ export default function SettingsPage() {
 
       toast.success("Backup completo descargado");
       await logAction("backup", "system", null, { collections: Object.keys(backup).length - 2 });
+      // Send email notification
+      try {
+        await fetch("/api/email/send-backup-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ success: true, details: "Backup manual completado desde Configuración" }),
+        });
+      } catch { /* ignore email errors */ }
     } catch (err: unknown) {
       toast.error(err instanceof Error ? err.message : "Error al hacer backup");
     }
@@ -339,6 +349,58 @@ export default function SettingsPage() {
     setAuditExportLoading(false);
   }
 
+  async function handleImportCsv(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith(".csv")) {
+      toast.error("El archivo debe ser .csv");
+      e.target.value = "";
+      return;
+    }
+
+    setCsvImportLoading(true);
+    setCsvImportResult(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const res = await fetch("/api/attendance/import-csv", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        throw new Error(result.error || "Error al importar");
+      }
+
+      setCsvImportResult({
+        imported: result.imported,
+        unmatched: result.unmatched,
+        unmatchedNames: result.unmatchedNames || [],
+      });
+
+      if (result.imported > 0) {
+        toast.success(`${result.imported} registros importados`);
+      }
+      if (result.unmatched > 0) {
+        toast.error(`${result.unmatched} registros no coincidieron`);
+      }
+
+      if (result.imported > 0) {
+        await logAction("import", "attendance_children", null, { imported: result.imported, unmatched: result.unmatched });
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al importar CSV");
+    } finally {
+      setCsvImportLoading(false);
+      e.target.value = "";
+    }
+  }
+
   useEffect(() => { loadSettings(); }, []);
   useEffect(() => { loadHolidays(); }, []);
 
@@ -351,6 +413,12 @@ export default function SettingsPage() {
     { key: "auto_mark_children", label: "Hora auto-cierre ninos (HH:MM, 24h)", placeholder: "Ej: 17:50" },
     { key: "auto_mark_staff", label: "Hora auto-cierre personal (HH:MM, 24h)", placeholder: "Ej: 16:30" },
     { key: "work_days", label: "Dias laborables (1=Lun..7=Dom, separado por comas)", placeholder: "Ej: 1,2,3,4,5" },
+    { key: "smtp_host", label: "SMTP Host", placeholder: "Ej: smtp.gmail.com" },
+    { key: "smtp_port", label: "SMTP Puerto", placeholder: "Ej: 587" },
+    { key: "smtp_secure", label: "SMTP Seguro (true/false)", placeholder: "false" },
+    { key: "smtp_user", label: "SMTP Usuario", placeholder: "Ej: correo@dominio.com" },
+    { key: "smtp_pass", label: "SMTP Contraseña", placeholder: "Contraseña de aplicación", type: "password" },
+    { key: "smtp_from", label: "Email remitente", placeholder: "Ej: Sistema <noreply@dominio.com>" },
   ];
 
   return (
@@ -492,6 +560,55 @@ export default function SettingsPage() {
           </button>
         </div>
         <p className="text-xs text-gray-500 dark:text-gray-400">Columnas: Fecha, Usuario, Accion, Entidad, Entidad ID, Detalle</p>
+      </div>
+
+      <div className="bg-white dark:bg-[#1a2438] rounded-2xl p-6 border border-gray-100 dark:border-gray-800 shadow-sm">
+        <div className="flex items-center gap-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+          <div className="w-9 h-9 rounded-xl gradient-warning flex items-center justify-center"><ArrowRightOnRectangleIcon className="w-5 h-5 text-white" /></div>
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">Importar Asistencia Histórica (CSV)</h3>
+        </div>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">Sube un archivo CSV con columnas: <code className="bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-xs font-mono">Fecha, Nombre Completo, Estado</code>. El sistema hace matching automático por nombre.</p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="flex-1 min-w-[250px]">
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white mb-1">Archivo CSV</label>
+            <input type="file" accept=".csv" onChange={handleImportCsv} disabled={csvImportLoading} className="w-full px-4 py-2.5 rounded-xl text-sm font-semibold bg-white dark:bg-[#0c1220] text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition-all cursor-pointer" />
+          </div>
+          <button onClick={() => setCsvImportResult(null)} disabled={csvImportLoading} className="px-5 py-2.5 gradient-warning text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all active:scale-[0.97] disabled:opacity-50 flex items-center gap-2">
+            {csvImportLoading ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Importando...</>) : (<><ArrowRightOnRectangleIcon className="w-4 h-4" /> Importar</>)}
+          </button>
+        </div>
+
+        {csvImportResult && (
+          <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="font-semibold text-gray-900 dark:text-white">Resultado de la importación</h4>
+              <button onClick={() => setCsvImportResult(null)} className="text-gray-400 hover:text-gray-600"><XCircleIcon className="w-5 h-5" /></button>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-lg">
+                <p className="text-emerald-600 dark:text-emerald-400 font-semibold">{csvImportResult.imported}</p>
+                <p className="text-emerald-500 dark:text-emerald-300 text-xs">Registros importados</p>
+              </div>
+              <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                <p className="text-red-600 dark:text-red-400 font-semibold">{csvImportResult.unmatched}</p>
+                <p className="text-red-500 dark:text-red-300 text-xs">No coincidieron</p>
+              </div>
+            </div>
+            {csvImportResult.unmatchedNames && csvImportResult.unmatchedNames.length > 0 && (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Ver nombres no coincidentes ({csvImportResult.unmatchedNames.length})
+                </summary>
+                <ul className="mt-2 text-xs text-gray-500 dark:text-gray-400 max-h-40 overflow-y-auto space-y-1">
+                  {csvImportResult.unmatchedNames.map((name, i) => (
+                    <li key={i}>• {name}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );

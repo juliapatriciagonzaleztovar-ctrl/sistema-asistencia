@@ -39,6 +39,21 @@ export default function CorrectionsPage() {
         await import("firebase/firestore").then(({ updateDoc }) => updateDoc(attRef, { status: null, check_in: null, signature_url: null }));
       }
       toast.success(`Solicitud aprobada - ${req.staff_name}`);
+      // Send email to operator
+      try {
+        await fetch("/api/email/send-correction-resolution-operator", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            operatorEmail: req.requested_by_email,
+            childName: req.staff_name,
+            childCode: req.staff_type === "teacher" ? "PROF" : "PRAC",
+            date: req.attendance_date,
+            approved: true,
+            adminNote: undefined,
+          }),
+        });
+      } catch { /* ignore email errors */ }
       loadData();
     } catch { toast.error("Error al aprobar"); }
   }
@@ -47,6 +62,21 @@ export default function CorrectionsPage() {
     try {
       await rejectCorrection(req.id, rejectNote.trim() || undefined);
       toast.success(`Solicitud rechazada - ${req.staff_name}`);
+      // Send email to operator
+      try {
+        await fetch("/api/email/send-correction-resolution-operator", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            operatorEmail: req.requested_by_email,
+            childName: req.staff_name,
+            childCode: req.staff_type === "teacher" ? "PROF" : "PRAC",
+            date: req.attendance_date,
+            approved: false,
+            adminNote: rejectNote.trim(),
+          }),
+        });
+      } catch { /* ignore email errors */ }
       setRejectingId(null);
       setRejectNote("");
       loadData();
@@ -57,6 +87,21 @@ export default function CorrectionsPage() {
     try {
       await approveChildCorrection(req.id, req.attendance_id);
       toast.success(`Solicitud aprobada - ${req.child_name}. Registro eliminado.`);
+      // Send email to operator
+      try {
+        await fetch("/api/email/send-correction-resolution-operator", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            operatorEmail: req.requested_by_email,
+            childName: req.child_name,
+            childCode: req.child_id_code || "S/I",
+            date: req.attendance_date,
+            approved: true,
+            adminNote: undefined,
+          }),
+        });
+      } catch { /* ignore email errors */ }
       loadData();
     } catch { toast.error("Error al aprobar"); }
   }
@@ -65,6 +110,21 @@ export default function CorrectionsPage() {
     try {
       await rejectChildCorrection(req.id, rejectNote.trim() || undefined);
       toast.success(`Solicitud rechazada - ${req.child_name}`);
+      // Send email to operator
+      try {
+        await fetch("/api/email/send-correction-resolution-operator", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            operatorEmail: req.requested_by_email,
+            childName: req.child_name,
+            childCode: req.child_id_code || "S/I",
+            date: req.attendance_date,
+            approved: false,
+            adminNote: rejectNote.trim(),
+          }),
+        });
+      } catch { /* ignore email errors */ }
       setRejectingId(null);
       setRejectNote("");
       loadData();

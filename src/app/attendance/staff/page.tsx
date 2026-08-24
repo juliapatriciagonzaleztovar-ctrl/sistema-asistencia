@@ -43,7 +43,16 @@ export default function StaffAttendancePage() {
     const today = getTodayDate();
     if (user) {
       const autoMarked = await autoMarkAbsentStaff(user.uid);
-      if (autoMarked > 0) toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 4:30pm)`, { icon: "\u2139\uFE0F" });
+      if (autoMarked > 0) {
+        toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 4:30pm)`, { icon: "\u2139\uFE0F" });
+        try {
+          await fetch("/api/email/send-auto-mark-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "staff", count: autoMarked }),
+          });
+        } catch { /* ignore email errors */ }
+      }
     }
     const [teachersData, practitionersData, attendanceData, holidaysData] = await Promise.all([
       getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),

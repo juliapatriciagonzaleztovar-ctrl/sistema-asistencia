@@ -56,7 +56,17 @@ export default function ChildrenAttendancePage() {
     const today = getTodayDate();
     if (user) {
       const autoMarked = await autoMarkAbsentChildren(user.uid);
-      if (autoMarked > 0) toast(`Se marcaron ${autoMarked} ninos como ausentes (pasado las 5:50pm)`, { icon: "\u2139\uFE0F" });
+      if (autoMarked > 0) {
+        toast(`Se marcaron ${autoMarked} ninos como ausentes (pasado las 5:50pm)`, { icon: "\u2139\uFE0F" });
+        // Send email notification
+        try {
+          await fetch("/api/email/send-auto-mark-notification", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ type: "children", count: autoMarked }),
+          });
+        } catch { /* ignore email errors */ }
+      }
     }
     const [childrenData, groupsData, attendanceData, holidaysData] = await Promise.all([
       getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
@@ -172,6 +182,19 @@ export default function ChildrenAttendancePage() {
         correctionReason.trim()
       );
       toast.success("Solicitud enviada al administrador");
+      // Send email notification to admins
+      try {
+        await fetch("/api/email/send-correction-notification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            childName,
+            childCode: correctionItem.child.child_id_code || "S/I",
+            date,
+            reason: correctionReason.trim(),
+          }),
+        });
+      } catch { /* ignore email errors */ }
       setCorrectionItem(null);
       setCorrectionReason("");
       loadMyCorrections();
