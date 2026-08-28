@@ -69,7 +69,8 @@ export default function StaffAttendancePage() {
       setHolidays(holidaysData.docs.map((d) => d.data().date));
     } catch (err) {
       console.error("Error loading attendance data:", err);
-      toast.error("Error al cargar datos de asistencia");
+      const msg = err instanceof Error ? err.message : "Error desconocido";
+      toast.error(`Error al cargar datos: ${msg}`);
     } finally {
       setLoading(false);
     }
