@@ -15,7 +15,7 @@ service cloud.firestore {
     }
 
     // ============================================
-    // profiles - Solo admin puede gestionar
+    // profiles - Usuario crea su perfil, admin gestiona todos
     // ============================================
     match /profiles/{userId} {
       // Cualquier autenticado puede leer su propio perfil
@@ -24,8 +24,8 @@ service cloud.firestore {
       // Admin puede leer cualquier perfil
       allow read: if isAuth() && isAdmin();
 
-      // Admin puede crear cualquier perfil
-      allow create: if isAuth() && isAdmin();
+      // Usuario puede crear SU PROPIO perfil, Admin puede crear cualquiera
+      allow create: if isAuth() && (request.auth.uid == userId || isAdmin());
 
       // Admin puede actualizar cualquier perfil
       // Un usuario puede actualizar su propio perfil (solo campos seguros)
