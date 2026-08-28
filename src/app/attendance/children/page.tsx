@@ -53,36 +53,42 @@ export default function ChildrenAttendancePage() {
   }, [user, isAdmin]);
 
   async function loadData() {
-    const today = getTodayDate();
-    if (user) {
-      const autoMarked = await autoMarkAbsentChildren(user.uid);
-      if (autoMarked > 0) {
-        toast(`Se marcaron ${autoMarked} ninos como ausentes (pasado las 5:50pm)`, { icon: "\u2139\uFE0F" });
-        // Send email notification
-        try {
-          await fetch("/api/email/send-auto-mark-notification", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "children", count: autoMarked }),
-          });
-        } catch { /* ignore email errors */ }
+    try {
+      const today = getTodayDate();
+      if (user) {
+        const autoMarked = await autoMarkAbsentChildren(user.uid);
+        if (autoMarked > 0) {
+          toast(`Se marcaron ${autoMarked} ninos como ausentes (pasado las 5:50pm)`, { icon: "\u2139\uFE0F" });
+          // Send email notification
+          try {
+            await fetch("/api/email/send-auto-mark-notification", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "children", count: autoMarked }),
+            });
+          } catch { /* ignore email errors */ }
+        }
       }
+      const [childrenData, groupsData, attendanceData, holidaysData] = await Promise.all([
+        getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
+        getDocs(collection(getFirebaseDb(), "groups")),
+        getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", today))),
+        getDocs(query(collection(getFirebaseDb(), "holidays"))),
+      ]);
+      const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
+      setItems(childrenData.docs.map((d) => {
+        const child = { id: d.id, ...d.data() } as Child;
+        const existing = attList.find((a) => a.child_id === child.id) || null;
+        return { child, existing, selectedStatus: (existing?.status as "present" | "absent") || null };
+      }));
+      setGroups(groupsData.docs.map((d) => ({ id: d.id, ...d.data() } as Group)));
+      setHolidays(holidaysData.docs.map((d) => d.data().date));
+    } catch (err) {
+      console.error("Error loading attendance data:", err);
+      toast.error("Error al cargar datos de asistencia");
+    } finally {
+      setLoading(false);
     }
-    const [childrenData, groupsData, attendanceData, holidaysData] = await Promise.all([
-      getDocs(query(collection(getFirebaseDb(), "children"), where("status", "==", "active"))),
-      getDocs(collection(getFirebaseDb(), "groups")),
-      getDocs(query(collection(getFirebaseDb(), "attendance_children"), where("attendance_date", "==", today))),
-      getDocs(query(collection(getFirebaseDb(), "holidays"))),
-    ]);
-    const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceChild));
-    setItems(childrenData.docs.map((d) => {
-      const child = { id: d.id, ...d.data() } as Child;
-      const existing = attList.find((a) => a.child_id === child.id) || null;
-      return { child, existing, selectedStatus: (existing?.status as "present" | "absent") || null };
-    }));
-    setGroups(groupsData.docs.map((d) => ({ id: d.id, ...d.data() } as Group)));
-    setHolidays(holidaysData.docs.map((d) => d.data().date));
-    setLoading(false);
   }
 
   async function loadMyCorrections() {

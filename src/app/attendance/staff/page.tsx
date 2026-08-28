@@ -40,33 +40,39 @@ export default function StaffAttendancePage() {
   useEffect(() => { loadData(); const i = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(i); }, []);
 
   async function loadData() {
-    const today = getTodayDate();
-    if (user) {
-      const autoMarked = await autoMarkAbsentStaff(user.uid);
-      if (autoMarked > 0) {
-        toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 4:30pm)`, { icon: "\u2139\uFE0F" });
-        try {
-          await fetch("/api/email/send-auto-mark-notification", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ type: "staff", count: autoMarked }),
-          });
-        } catch { /* ignore email errors */ }
+    try {
+      const today = getTodayDate();
+      if (user) {
+        const autoMarked = await autoMarkAbsentStaff(user.uid);
+        if (autoMarked > 0) {
+          toast(`Se marcaron ${autoMarked} miembros del personal como ausentes (pasado las 4:30pm)`, { icon: "\u2139\uFE0F" });
+          try {
+            await fetch("/api/email/send-auto-mark-notification", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ type: "staff", count: autoMarked }),
+            });
+          } catch { /* ignore email errors */ }
+        }
       }
+      const [teachersData, practitionersData, attendanceData, holidaysData] = await Promise.all([
+        getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
+        getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
+        getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", today))),
+        getDocs(query(collection(getFirebaseDb(), "holidays"))),
+      ]);
+      const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceStaff));
+      setItems([
+        ...teachersData.docs.map((d) => ({ staff: { id: d.id, ...d.data() } as Teacher, type: "teacher" as const, attendance: attList.find((a) => a.staff_id === d.id && a.staff_type === "teacher") || null })),
+        ...practitionersData.docs.map((d) => ({ staff: { id: d.id, ...d.data() } as Practitioner, type: "practitioner" as const, attendance: attList.find((a) => a.staff_id === d.id && a.staff_type === "practitioner") || null })),
+      ]);
+      setHolidays(holidaysData.docs.map((d) => d.data().date));
+    } catch (err) {
+      console.error("Error loading attendance data:", err);
+      toast.error("Error al cargar datos de asistencia");
+    } finally {
+      setLoading(false);
     }
-    const [teachersData, practitionersData, attendanceData, holidaysData] = await Promise.all([
-      getDocs(query(collection(getFirebaseDb(), "teachers"), where("status", "==", "active"))),
-      getDocs(query(collection(getFirebaseDb(), "practitioners"), where("status", "==", "active"))),
-      getDocs(query(collection(getFirebaseDb(), "attendance_staff"), where("attendance_date", "==", today))),
-      getDocs(query(collection(getFirebaseDb(), "holidays"))),
-    ]);
-    const attList = attendanceData.docs.map((d) => ({ id: d.id, ...d.data() } as AttendanceStaff));
-    setItems([
-      ...teachersData.docs.map((d) => ({ staff: { id: d.id, ...d.data() } as Teacher, type: "teacher" as const, attendance: attList.find((a) => a.staff_id === d.id && a.staff_type === "teacher") || null })),
-      ...practitionersData.docs.map((d) => ({ staff: { id: d.id, ...d.data() } as Practitioner, type: "practitioner" as const, attendance: attList.find((a) => a.staff_id === d.id && a.staff_type === "practitioner") || null })),
-    ]);
-    setHolidays(holidaysData.docs.map((d) => d.data().date));
-    setLoading(false);
   }
 
   async function markAbsent(item: StaffItem) {
