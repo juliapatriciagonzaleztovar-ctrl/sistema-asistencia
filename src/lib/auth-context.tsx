@@ -35,15 +35,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function loadProfile(uid: string) {
     try {
+      console.log("[Auth] Loading profile for:", uid);
       const docRef = doc(getFirebaseDb(), "profiles", uid);
       const docSnap = await getDoc(docRef);
+      console.log("[Auth] Profile exists:", docSnap.exists());
       if (docSnap.exists()) {
         setProfile({ id: docSnap.id, ...docSnap.data() } as Profile);
       } else {
         // Create profile for new user with default operator role
+        console.log("[Auth] Creating new profile for:", uid);
         const currentUser = getFirebaseAuth().currentUser;
         const email = currentUser?.email || "";
-        const isFirstUser = (await getDocs(collection(getFirebaseDb(), "profiles"))).empty;
+        const profilesSnap = await getDocs(collection(getFirebaseDb(), "profiles"));
+        const isFirstUser = profilesSnap.empty;
         
         const newProfile = {
           email,
@@ -54,7 +58,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updated_at: new Date().toISOString(),
         };
         
+        console.log("[Auth] Creating profile:", newProfile);
         await setDoc(docRef, newProfile);
+        console.log("[Auth] Profile created successfully");
         setProfile({ id: uid, ...newProfile });
       }
     } catch (err) {
