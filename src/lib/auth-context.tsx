@@ -40,23 +40,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (docSnap.exists()) {
         setProfile({ id: docSnap.id, ...docSnap.data() } as Profile);
       } else {
-        const profilesSnap = await getDocs(collection(getFirebaseDb(), "profiles"));
-        if (profilesSnap.empty) {
-          const newProfile = {
-            email: getFirebaseAuth().currentUser?.email || "",
-            display_name: getFirebaseAuth().currentUser?.email?.split("@")[0] || "Usuario",
-            role: "super_admin" as const,
-            avatar_url: null,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          };
-          await setDoc(docRef, newProfile);
-          setProfile({ id: uid, ...newProfile });
-        } else {
-          setProfile(null);
-        }
+        // Create profile for new user with default operator role
+        const currentUser = getFirebaseAuth().currentUser;
+        const email = currentUser?.email || "";
+        const isFirstUser = (await getDocs(collection(getFirebaseDb(), "profiles"))).empty;
+        
+        const newProfile = {
+          email,
+          display_name: email?.split("@")[0] || "Usuario",
+          role: isFirstUser ? "super_admin" as const : "operator" as const,
+          avatar_url: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        
+        await setDoc(docRef, newProfile);
+        setProfile({ id: uid, ...newProfile });
       }
-    } catch {
+    } catch (err) {
+      console.error("Error loading profile:", err);
       setProfile(null);
     }
   }
