@@ -89,7 +89,8 @@ service cloud.firestore {
     // ============================================
     match /audit_logs/{logId} {
       allow read: if isAuth() && isAdmin();
-      allow create, update, delete: if false;
+      allow create: if isAuth();
+      allow update, delete: if false;
     }
 
     // ============================================
@@ -116,6 +117,14 @@ service cloud.firestore {
     // system_settings - Solo admin puede escribir
     // ============================================
     match /system_settings/{settingId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAuth() && isAdmin();
+    }
+
+    // ============================================
+    // holidays - Cualquier autenticado lee, solo admin escribe
+    // ============================================
+    match /holidays/{holidayId} {
       allow read: if isAuth();
       allow create, update, delete: if isAuth() && isAdmin();
     }

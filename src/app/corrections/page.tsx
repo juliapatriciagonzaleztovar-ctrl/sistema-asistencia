@@ -21,13 +21,19 @@ export default function CorrectionsPage() {
   useEffect(() => { loadData(); }, []);
 
   async function loadData() {
-    const [staff, children] = await Promise.all([
-      getPendingCorrections(),
-      getPendingChildCorrections(),
-    ]);
-    setStaffRequests(staff);
-    setChildRequests(children);
-    setLoading(false);
+    try {
+      const [staff, children] = await Promise.all([
+        getPendingCorrections(),
+        getPendingChildCorrections(),
+      ]);
+      setStaffRequests(staff);
+      setChildRequests(children);
+    } catch (err) {
+      console.error("Error loading corrections:", err);
+      toast.error("Error al cargar solicitudes de corrección");
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleApproveStaff(req: CorrectionRequest) {
@@ -55,7 +61,7 @@ export default function CorrectionsPage() {
         });
       } catch { /* ignore email errors */ }
       loadData();
-    } catch { toast.error("Error al aprobar"); }
+    } catch (err) { console.error("Error approving staff correction:", err); toast.error("Error al aprobar"); }
   }
 
   async function handleRejectStaff(req: CorrectionRequest) {
@@ -80,7 +86,7 @@ export default function CorrectionsPage() {
       setRejectingId(null);
       setRejectNote("");
       loadData();
-    } catch { toast.error("Error al rechazar"); }
+    } catch (err) { console.error("Error rejecting staff correction:", err); toast.error("Error al rechazar"); }
   }
 
   async function handleApproveChild(req: CorrectionRequestChild) {
@@ -103,7 +109,7 @@ export default function CorrectionsPage() {
         });
       } catch { /* ignore email errors */ }
       loadData();
-    } catch { toast.error("Error al aprobar"); }
+    } catch (err) { console.error("Error approving child correction:", err); toast.error("Error al aprobar"); }
   }
 
   async function handleRejectChild(req: CorrectionRequestChild) {
@@ -128,7 +134,7 @@ export default function CorrectionsPage() {
       setRejectingId(null);
       setRejectNote("");
       loadData();
-    } catch { toast.error("Error al rechazar"); }
+    } catch (err) { console.error("Error rejecting child correction:", err); toast.error("Error al rechazar"); }
   }
 
   if (loading) return <LoadingSpinner label="Cargando solicitudes..." />;

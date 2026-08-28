@@ -8,18 +8,22 @@ export async function logAction(
   entityId: string | null,
   details: Record<string, unknown> | null
 ) {
-  const user = getFirebaseAuth().currentUser;
-  const userEmail = user?.email || "system";
+  try {
+    const user = getFirebaseAuth().currentUser;
+    const userEmail = user?.email || "system";
 
-  await addDoc(collection(getFirebaseDb(), "audit_logs"), {
-    user_id: user?.uid || null,
-    user_email: userEmail,
-    action,
-    entity_type: entityType,
-    entity_id: entityId,
-    details,
-    created_at: new Date().toISOString(),
-  });
+    await addDoc(collection(getFirebaseDb(), "audit_logs"), {
+      user_id: user?.uid || null,
+      user_email: userEmail,
+      action,
+      entity_type: entityType,
+      entity_id: entityId,
+      details,
+      created_at: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error("Audit log failed (non-critical):", err);
+  }
 }
 
 export async function getAuditLogs(): Promise<AuditLog[]> {

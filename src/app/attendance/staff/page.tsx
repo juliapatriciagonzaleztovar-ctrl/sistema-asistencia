@@ -83,7 +83,7 @@ export default function StaffAttendancePage() {
       await logAction("create", "attendance_staff", null, { staff_id: item.staff.id, staff_name: `${item.staff.first_name} ${item.staff.last_name}`, staff_type: item.type, signed: false, status: "absent" });
       toast.success(`${item.staff.first_name} - No asistio`);
       loadData();
-    } catch { toast.error("Error al marcar"); }
+    } catch (err) { console.error("Error marking absent:", err); toast.error("Error al marcar"); }
   }
 
   function startSignature(item: StaffItem) {
@@ -123,7 +123,7 @@ export default function StaffAttendancePage() {
       setShowSignature(false);
       setSigningFor(null);
       loadData();
-    } catch { toast.error("Error al registrar"); }
+    } catch (err) { console.error("Error saving attendance:", err); toast.error("Error al registrar"); }
   }, [signingFor, user]);
 
   function openEdit(item: StaffItem) { setEditItem(item); setEditNote(""); }
@@ -137,7 +137,7 @@ export default function StaffAttendancePage() {
       toast.success("Asistencia corregida");
       setEditItem(null);
       loadData();
-    } catch { toast.error("Error al corregir asistencia"); }
+    } catch (err) { console.error("Error correcting attendance:", err); toast.error("Error al corregir asistencia"); }
     setSavingEdit(false);
   }
 
@@ -155,7 +155,7 @@ export default function StaffAttendancePage() {
       toast.success("Solicitud enviada al administrador");
       setCorrectionItem(null);
       setCorrectionReason("");
-    } catch { toast.error("Error al enviar solicitud"); }
+    } catch (err) { console.error("Error requesting correction:", err); toast.error("Error al enviar solicitud"); }
   }
 
   const filtered = items

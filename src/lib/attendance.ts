@@ -19,7 +19,16 @@ export async function registerSingleChildAttendance(
       where("attendance_date", "==", today)
     )
   );
-  if (!existingSnap.empty) return existingSnap.docs[0].id;
+  if (!existingSnap.empty) {
+    const existingDoc = existingSnap.docs[0];
+    await updateDoc(existingDoc.ref, {
+      status,
+      check_in: status === "present" ? new Date().toISOString() : null,
+      modified_by: userId,
+      modified_at: new Date().toISOString(),
+    });
+    return existingDoc.id;
+  }
 
   const docRef = await addDoc(collection(getFirebaseDb(), "attendance_children"), {
     child_id: childId,
@@ -50,8 +59,12 @@ export async function registerStaffAttendance(
   if (!snapshot.empty) {
     const docRef = snapshot.docs[0].ref;
     await updateDoc(docRef, {
-      check_out: new Date().toISOString(),
+      check_in: new Date().toISOString(),
+      check_out: null,
+      status: null,
       signature_url: signatureUrl,
+      modified_by: userId,
+      modified_at: new Date().toISOString(),
     });
     return { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as AttendanceStaff;
   }
@@ -181,7 +194,7 @@ export async function updateChildAttendance(attendanceId: string, newStatus: "pr
 export async function updateStaffAttendance(attendanceId: string, newCheckIn: string | null, note: string, userId: string) {
   const attRef = doc(getFirebaseDb(), "attendance_staff", attendanceId);
   await updateDoc(attRef, {
-    check_in: newCheckIn || new Date().toISOString(),
+    check_in: newCheckIn ? newCheckIn : new Date().toISOString(),
     status: newCheckIn ? null : "absent",
     modified_by: userId,
     modification_note: note,

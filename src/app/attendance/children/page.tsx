@@ -147,7 +147,7 @@ export default function ChildrenAttendancePage() {
       });
       toast.success(status === "present" ? `${child.first_name} - Asistio (${formatTime(new Date().toISOString())})` : `${child.first_name} - No asistio`);
       loadData();
-    } catch { toast.error("Error al marcar asistencia"); }
+    } catch (err) { console.error("Error marking attendance:", err); toast.error("Error al marcar asistencia"); }
   }
 
   function openEdit(item: ChildItem) {
@@ -170,7 +170,7 @@ export default function ChildrenAttendancePage() {
       toast.success("Asistencia corregida");
       setEditItem(null);
       loadData();
-    } catch { toast.error("Error al corregir asistencia"); }
+    } catch (err) { console.error("Error correcting attendance:", err); toast.error("Error al corregir asistencia"); }
     setSavingEdit(false);
   }
 
@@ -205,7 +205,7 @@ export default function ChildrenAttendancePage() {
       setCorrectionItem(null);
       setCorrectionReason("");
       loadMyCorrections();
-    } catch { toast.error("Error al enviar solicitud"); }
+    } catch (err) { console.error("Error submitting correction:", err); toast.error("Error al enviar solicitud"); }
   }
 
   const filtered = items
