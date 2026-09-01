@@ -1,5 +1,5 @@
 import {
-  collection, query, where, getDocs, addDoc, updateDoc, doc,
+  collection, query, where, getDocs, addDoc, updateDoc, doc, deleteDoc,
   orderBy, writeBatch
 } from "firebase/firestore";
 import { getFirebaseDb } from "./firebase";
@@ -200,4 +200,34 @@ export async function updateStaffAttendance(attendanceId: string, newCheckIn: st
     modification_note: note,
     modified_at: new Date().toISOString(),
   });
+}
+
+export async function deleteImportedAttendance(startDate: string, endDate: string): Promise<number> {
+  const db = getFirebaseDb();
+  const snapshot = await getDocs(
+    query(
+      collection(db, "attendance_children"),
+      where("registered_by", "==", "csv-import"),
+      where("attendance_date", ">=", startDate),
+      where("attendance_date", "<=", endDate)
+    )
+  );
+
+  if (snapshot.empty) return 0;
+
+  const batchSize = 500;
+  let deleted = 0;
+  const docs = snapshot.docs;
+
+  for (let i = 0; i < docs.length; i += batchSize) {
+    const batch = writeBatch(db);
+    const chunk = docs.slice(i, i + batchSize);
+    for (const d of chunk) {
+      batch.delete(d.ref);
+    }
+    await batch.commit();
+    deleted += chunk.length;
+  }
+
+  return deleted;
 }

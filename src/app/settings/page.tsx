@@ -6,6 +6,7 @@ import { getFirebaseDb } from "@/lib/firebase";
 import { Input } from "@/components/ui/Input";
 import { LoadingSpinner } from "@/components/ui/LoadingSpinner";
 import { exportToExcel } from "@/lib/export";
+import { deleteImportedAttendance } from "@/lib/attendance";
 import { toast } from "react-hot-toast";
 import { logAction } from "@/lib/audit";
 import { Cog6ToothIcon, DocumentArrowDownIcon, UserGroupIcon, AcademicCapIcon, BriefcaseIcon, ArrowDownTrayIcon, ArrowUpTrayIcon, ClockIcon, ArrowDownTrayIcon as DownloadIcon, CalendarDaysIcon, ShieldCheckIcon, PlusIcon, TrashIcon, ArrowRightOnRectangleIcon, XCircleIcon } from "@heroicons/react/24/outline";
@@ -33,6 +34,7 @@ export default function SettingsPage() {
   const [auditDateTo, setAuditDateTo] = useState("");
   const [csvImportLoading, setCsvImportLoading] = useState(false);
   const [csvImportResult, setCsvImportResult] = useState<{ imported: number; unmatched: number; unmatchedNames: string[] } | null>(null);
+  const [deleteImportedLoading, setDeleteImportedLoading] = useState(false);
 
   useEffect(() => { loadSettings(); }, []);
 
@@ -401,6 +403,20 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleDeleteImported() {
+    if (!confirm("¿Eliminar todos los registros importados del 1 al 16 de junio 2026? Esta acción no se puede deshacer.")) return;
+    setDeleteImportedLoading(true);
+    try {
+      const deleted = await deleteImportedAttendance("2026-06-01", "2026-06-16");
+      toast.success(`${deleted} registros eliminados`);
+      await logAction("delete", "attendance_children", null, { deleted, dateRange: "2026-06-01 to 2026-06-16", reason: "csv-import-cleanup" });
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Error al eliminar");
+    } finally {
+      setDeleteImportedLoading(false);
+    }
+  }
+
   useEffect(() => { loadSettings(); }, []);
   useEffect(() => { loadHolidays(); }, []);
 
@@ -608,6 +624,13 @@ export default function SettingsPage() {
             )}
           </div>
         )}
+
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">¿Importaste mal y quieres volver a intentar? Elimina los registros importados del 1 al 16 de junio 2026.</p>
+          <button onClick={handleDeleteImported} disabled={deleteImportedLoading} className="px-5 py-2.5 bg-red-500 text-white font-semibold rounded-xl shadow-md hover:bg-red-600 transition-all active:scale-[0.97] disabled:opacity-50 flex items-center gap-2">
+            {deleteImportedLoading ? (<><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Eliminando...</>) : (<><TrashIcon className="w-4 h-4" /> Eliminar registros importados (1-16 junio)</>)}
+          </button>
+        </div>
 
       </div>
     </div>
