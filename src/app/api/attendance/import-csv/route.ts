@@ -148,8 +148,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "CSV vacío o inválido" }, { status: 400 });
     }
 
+    // Detect if the entire row is wrapped in quotes as a single field
+    // e.g., "Fecha,Nombre,Estado" instead of "Fecha","Nombre","Estado"
+    const rows = parsed.map(row => {
+      if (row.length === 1 && row[0].includes(",")) {
+        return row[0].split(",").map(c => c.replace(/^"|"$/g, "").trim());
+      }
+      return row;
+    });
+
     // Find column indices
-    const header = parsed[0].map(h => h.toLowerCase().trim());
+    const header = rows[0].map(h => h.toLowerCase().trim());
     const fechaIdx = header.findIndex(h => h.includes("fecha"));
     const nombreIdx = header.findIndex(h => h.includes("nombre"));
     const estadoIdx = header.findIndex(h => h.includes("asist") || h.includes("estado"));
@@ -163,8 +172,8 @@ export async function POST(req: NextRequest) {
     // Parse records
     const records: { name: string; normName: string; date: string; status: "present" | "absent" }[] = [];
     
-    for (let i = 1; i < parsed.length; i++) {
-      const row = parsed[i];
+    for (let i = 1; i < rows.length; i++) {
+      const row = rows[i];
       if (row.length <= Math.max(fechaIdx, nombreIdx, estadoIdx)) continue;
 
       const fecha = row[fechaIdx]?.trim();
@@ -173,7 +182,7 @@ export async function POST(req: NextRequest) {
 
       if (!fecha || !nombre) continue;
 
-      const status = estadoRaw.includes("asist") ? "present" : "absent";
+      const status = estadoRaw.includes("no asist") ? "absent" : estadoRaw.includes("asist") ? "present" : "absent";
 
       // Fix encoding on the name
       const fixedName = fixEncoding(nombre.trim());
