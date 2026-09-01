@@ -230,7 +230,11 @@ export default function StaffAttendancePage() {
           <div key={`${item.type}-${item.staff.id}`} className="bg-white dark:bg-[#1a2438] rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm transition-all">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold ${item.type === "teacher" ? "gradient-success" : "gradient-warm"}`}>{item.staff.first_name.charAt(0)}{item.staff.last_name.charAt(0)}</div>
+                {item.staff.photo_url ? (
+                  <img src={item.staff.photo_url} alt={`${item.staff.first_name} ${item.staff.last_name}`} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                ) : (
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white text-sm font-bold ${item.type === "teacher" ? "gradient-success" : "gradient-warm"}`}>{item.staff.first_name.charAt(0)}{item.staff.last_name.charAt(0)}</div>
+                )}
                 <div><h3 className="font-bold text-gray-900 dark:text-white text-sm">{item.staff.first_name} {item.staff.last_name}</h3><p className="text-[11px] text-gray-400">{item.type === "teacher" ? "Profesor" : "Practicante"}</p></div>
               </div>
               <div className="flex items-center gap-2">

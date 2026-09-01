@@ -297,7 +297,11 @@ export default function ChildrenAttendancePage() {
           >
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-sm font-bold">{item.child.first_name.charAt(0)}{item.child.last_name.charAt(0)}</div>
+                {item.child.photo_url ? (
+                  <img src={item.child.photo_url} alt={`${item.child.first_name} ${item.child.last_name}`} className="w-10 h-10 rounded-xl object-cover shadow-sm" />
+                ) : (
+                  <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center text-white text-sm font-bold">{item.child.first_name.charAt(0)}{item.child.last_name.charAt(0)}</div>
+                )}
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-gray-900 dark:text-white text-sm">{item.child.first_name} {item.child.last_name}</h3>
